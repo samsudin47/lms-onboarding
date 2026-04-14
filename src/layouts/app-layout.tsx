@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, LogOut, UserRound } from "lucide-react"
+import { Bell, ChevronDown, LogOut, Moon, Sun, UserRound } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom"
 
@@ -15,6 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useTheme } from "@/components/theme-provider"
 import { getFeatureByPath } from "@/lib/app-features"
 import { cn } from "@/lib/utils"
 import {
@@ -64,6 +65,33 @@ function getClassHeaderCopy(section: string | null, track: string | null) {
         summary: "Journey class PKWT, Pro Hire, dan MT/Organik.",
       }
   }
+}
+
+function ThemeToggleButton() {
+  const { theme, setTheme } = useTheme()
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches)
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="cursor-pointer rounded-full border-0 shadow-none"
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {isDark ? "Mode terang" : "Mode gelap"}
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 export default function AppLayout() {
@@ -195,6 +223,7 @@ function AppLayoutFrame({
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggleButton />
             {!isRestrictedNavigationUser ? (
               <Tooltip>
                 <TooltipTrigger asChild>
