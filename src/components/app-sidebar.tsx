@@ -1,0 +1,459 @@
+import { useState } from "react"
+import {
+  ChevronDown,
+  ClipboardCheck,
+  LayoutDashboard,
+  Layers3,
+  ShieldCheck,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react"
+import { NavLink, useLocation } from "react-router-dom"
+
+import iconPeruri from "@/assets/icon-peruri.png"
+import {
+  getDemoUserTrack,
+  getRoleKey,
+  getStoredDemoUser,
+  type DemoRoleKey,
+  type DemoUser,
+} from "@/lib/demo-access"
+import { cn } from "@/lib/utils"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarRail,
+} from "@/components/ui/sidebar"
+
+type NavigationNode = {
+  id: string
+  title: string
+  icon?: LucideIcon
+  path?: string
+  track?: string
+  section?: string
+  children?: NavigationNode[]
+}
+
+const mentorChildren: NavigationNode[] = [
+  {
+    id: "mentor-mentee-list",
+    title: "Daftar Mentee",
+    path: "/journey-onboarding",
+    section: "mentee-list",
+  },
+  {
+    id: "mentor-progress",
+    title: "Progress Mentee",
+    path: "/journey-onboarding",
+    section: "progress",
+  },
+  {
+    id: "mentor-coaching-1",
+    title: "Hasil Coaching Sesi 1",
+    path: "/journey-onboarding",
+    section: "coaching-1",
+  },
+  {
+    id: "mentor-coaching-2",
+    title: "Hasil Coaching Sesi 2",
+    path: "/journey-onboarding",
+    section: "coaching-2",
+  },
+  {
+    id: "mentor-coaching-3",
+    title: "Hasil Coaching Sesi 3",
+    path: "/journey-onboarding",
+    section: "coaching-3",
+  },
+  {
+    id: "mentor-project",
+    title: "Penilaian Project",
+    path: "/journey-onboarding",
+    section: "project",
+  },
+  {
+    id: "mentor-graduation",
+    title: "Konfirmasi Kelulusan",
+    path: "/journey-onboarding",
+    section: "graduation",
+  },
+]
+
+const myClassChildren: NavigationNode[] = [
+  {
+    id: "my-class-pkwt",
+    title: "PKWT",
+    path: "/class",
+    track: "pkwt",
+    section: "overview",
+  },
+  {
+    id: "my-class-pro-hire",
+    title: "Prohire",
+    path: "/class",
+    track: "pro-hire",
+    section: "overview",
+  },
+  {
+    id: "my-class-mt-organik",
+    title: "MT/Organik",
+    path: "/class",
+    track: "mt-organik",
+    section: "overview",
+  },
+]
+
+const adminChildren: NavigationNode[] = [
+  {
+    id: "admin-class-pkwt",
+    title: "PKWT",
+    path: "/class",
+    track: "pkwt",
+    section: "batch-list",
+  },
+  {
+    id: "admin-class-pro-hire",
+    title: "Prohire",
+    path: "/class",
+    track: "pro-hire",
+    section: "batch-list",
+  },
+  {
+    id: "admin-class-mt-organik",
+    title: "MT/Organik",
+    path: "/class",
+    track: "mt-organik",
+    section: "batch-list",
+  },
+]
+
+const dataMentorChildren: NavigationNode[] = [
+  {
+    id: "data-mentor-mentor",
+    title: "Mentor & Co-Mentor",
+    path: "/class",
+    section: "mentor",
+  },
+]
+
+const examinerChildren: NavigationNode[] = [
+  {
+    id: "examiner-participants",
+    title: "Nama Peserta",
+    path: "/evaluasi-feedback",
+    section: "participants",
+  },
+]
+
+function buildHref(item: NavigationNode) {
+  if (!item.path) return "#"
+
+  const params = new URLSearchParams()
+
+  if (item.track) params.set("track", item.track)
+  if (item.section) params.set("section", item.section)
+
+  const query = params.toString()
+  return query ? `${item.path}?${query}` : item.path
+}
+
+function matchesNode(
+  item: NavigationNode,
+  pathname: string,
+  activeTrack: string,
+  activeSection: string
+): boolean {
+  if (item.children?.length) {
+    return item.children.some((child) =>
+      matchesNode(child, pathname, activeTrack, activeSection)
+    )
+  }
+
+  if (!item.path || pathname !== item.path) return false
+  if (item.track && activeTrack !== item.track) return false
+  if (item.section && activeSection !== item.section) return false
+
+  return true
+}
+
+function getNavigation(
+  roleKey: DemoRoleKey,
+  currentUser: DemoUser
+): NavigationNode[] {
+  if (roleKey === "examiner") {
+    return [
+      {
+        id: "dashboard",
+        title: "Dashboard",
+        icon: LayoutDashboard,
+        path: "/dashboard",
+      },
+      {
+        id: "management-penguji",
+        title: "Management Penguji",
+        icon: ClipboardCheck,
+        children: examinerChildren,
+      },
+      {
+        id: "profile-link",
+        title: "Profile",
+        icon: UserRound,
+        path: "/profile",
+      },
+    ]
+  }
+
+  if (roleKey === "mentor" || roleKey === "coMentor") {
+    return [
+      {
+        id: "dashboard",
+        title: "Dashboard",
+        icon: LayoutDashboard,
+        path: "/dashboard",
+      },
+      {
+        id: "management-mentor",
+        title: "Management Mentor",
+        icon: Users,
+        children: mentorChildren,
+      },
+      {
+        id: "profile-link",
+        title: "Profile",
+        icon: UserRound,
+        path: "/profile",
+      },
+    ]
+  }
+
+  const assignedTrack = getDemoUserTrack(currentUser)
+  const participantChildren = assignedTrack
+    ? myClassChildren.filter((item) => item.track === assignedTrack)
+    : myClassChildren
+  const defaultParticipantTrack = assignedTrack ?? "pkwt"
+
+  const items: NavigationNode[] = [
+    {
+      id: "dashboard",
+      title: "Dashboard",
+      icon: LayoutDashboard,
+      path: "/dashboard",
+    },
+    ...(roleKey === "participant"
+      ? [
+          {
+            id: "my-class",
+            title: "My Classes",
+            icon: Layers3,
+            children: participantChildren,
+          },
+          {
+            id: "class-link",
+            title: "Class",
+            icon: Layers3,
+            path: "/class",
+            track: defaultParticipantTrack,
+            section: "catalog",
+          },
+        ]
+      : []),
+  ]
+
+  if (roleKey === "participant") {
+    items.push(
+      {
+        id: "evaluasi-link",
+        title: "Evaluasi",
+        icon: ClipboardCheck,
+        path: "/evaluasi-feedback",
+      },
+      {
+        id: "profile-link",
+        title: "Profile",
+        icon: UserRound,
+        path: "/profile",
+      }
+    )
+
+    return items
+  }
+
+  if (["adminPSP", "mentor", "coMentor"].includes(roleKey)) {
+    items.push({
+      id: "management-mentor",
+      title: "Management Mentor",
+      icon: Users,
+      children: mentorChildren,
+    })
+  }
+
+  if (roleKey === "adminPSP") {
+    items.push(
+      {
+        id: "management-admin",
+        title: "Management Class",
+        icon: ShieldCheck,
+        children: adminChildren,
+      },
+      {
+        id: "data-mentor",
+        title: "Management Mentor",
+        icon: Users,
+        children: dataMentorChildren,
+      }
+    )
+  }
+
+  if (["adminPSP", "examiner"].includes(roleKey)) {
+    items.push({
+      id: "management-penguji",
+      title: "Management Penguji",
+      icon: ClipboardCheck,
+      children: examinerChildren,
+    })
+  }
+
+  if (["adminPSP", "mentor", "coMentor", "examiner"].includes(roleKey)) {
+    items.push({
+      id: "evaluasi-link",
+      title: "Evaluasi",
+      icon: ClipboardCheck,
+      path: "/evaluasi-feedback",
+    })
+  }
+
+  items.push({
+    id: "profile-link",
+    title: "Profile",
+    icon: UserRound,
+    path: "/profile",
+  })
+
+  return items
+}
+
+export function AppSidebar() {
+  const { pathname, search } = useLocation()
+  const currentUser = getStoredDemoUser()
+  const roleKey = getRoleKey(currentUser.role)
+  const navigationItems = getNavigation(roleKey, currentUser)
+  const params = new URLSearchParams(search)
+  const activeTrack = params.get("track") ?? "pkwt"
+  const activeSection = params.get("section") ?? ""
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
+    "my-class": true,
+  })
+
+  function toggleMenu(id: string) {
+    setOpenMenus((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  function renderNode(item: NavigationNode, level = 0) {
+    const hasChildren = Boolean(item.children?.length)
+    const isActive = matchesNode(item, pathname, activeTrack, activeSection)
+    const isOpen = openMenus[item.id] ?? isActive
+    const Icon = item.icon
+
+    if (hasChildren) {
+      return (
+        <div key={item.id} className="space-y-1">
+          <button
+            type="button"
+            onClick={() => toggleMenu(item.id)}
+            className={cn(
+              "flex w-full items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-sm font-medium transition group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2",
+              level === 0
+                ? "text-slate-50 hover:bg-sky-400/20 hover:text-white"
+                : "text-slate-200 group-data-[collapsible=icon]:hidden hover:bg-sky-400/15 hover:text-white",
+              isActive && "bg-sky-400/30 text-white"
+            )}
+            title={item.title}
+          >
+            {Icon ? <Icon className="size-4 shrink-0" /> : null}
+            <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+              {item.title}
+            </span>
+            <ChevronDown
+              className={cn(
+                "size-4 shrink-0 transition-transform group-data-[collapsible=icon]:hidden",
+                isOpen && "rotate-180"
+              )}
+            />
+          </button>
+
+          {isOpen ? (
+            <div
+              className={cn(
+                "ml-4 space-y-1 border-l border-white/10 pl-3 group-data-[collapsible=icon]:hidden",
+                level > 0 && "ml-3"
+              )}
+            >
+              {item.children?.map((child) => renderNode(child, level + 1))}
+            </div>
+          ) : null}
+        </div>
+      )
+    }
+
+    return (
+      <SidebarMenuButton
+        key={item.id}
+        asChild
+        isActive={isActive}
+        tooltip={level === 0 ? item.title : undefined}
+        className={cn(
+          "rounded-xl font-medium hover:text-white",
+          level === 0
+            ? "text-slate-50 hover:bg-sky-400/20 data-[active=true]:bg-sky-400/35 data-[active=true]:text-white"
+            : "h-8 px-3 text-slate-200 group-data-[collapsible=icon]:hidden hover:bg-sky-400/15 data-[active=true]:bg-sky-400/25 data-[active=true]:text-white"
+        )}
+      >
+        <NavLink to={buildHref(item)} end={!item.track && !item.section}>
+          {Icon ? <Icon className="size-4 shrink-0" /> : null}
+          <span>{item.title}</span>
+        </NavLink>
+      </SidebarMenuButton>
+    )
+  }
+
+  return (
+    <Sidebar
+      variant="inset"
+      collapsible="icon"
+      className="[&_[data-sidebar=sidebar]]:border-sky-200/20 [&_[data-sidebar=sidebar]]:bg-linear-to-b [&_[data-sidebar=sidebar]]:from-blue-900 [&_[data-sidebar=sidebar]]:via-blue-800 [&_[data-sidebar=sidebar]]:to-indigo-900 [&_[data-sidebar=sidebar]]:text-slate-50 [&_[data-sidebar=sidebar]]:shadow-[0_20px_60px_rgba(37,99,235,0.28)]"
+    >
+      <SidebarHeader className="p-3">
+        <div className="overflow-hidden rounded-2xl border border-white/10 shadow-sm group-data-[collapsible=icon]:rounded-xl">
+          <img
+            src={iconPeruri}
+            alt="Peruri"
+            className="block h-24 w-full object-cover group-data-[collapsible=icon]:h-10"
+          />
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] tracking-[0.22em] text-slate-200/80 uppercase">
+            Akses {currentUser.role}
+          </SidebarGroupLabel>
+
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1">
+              {navigationItems.map((item) => renderNode(item))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
