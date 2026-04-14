@@ -1,5 +1,6 @@
 import { useState } from "react"
 import {
+  BarChart2,
   ChevronDown,
   ClipboardCheck,
   LayoutDashboard,
@@ -124,13 +125,6 @@ const adminChildren: NavigationNode[] = [
     title: "Prohire",
     path: "/class",
     track: "pro-hire",
-    section: "batch-list",
-  },
-  {
-    id: "admin-class-mt-organik",
-    title: "MT/Organik",
-    path: "/class",
-    track: "mt-organik",
     section: "batch-list",
   },
 ]
@@ -268,28 +262,20 @@ function getNavigation(
   ]
 
   if (roleKey === "participant") {
-    items.push(
-      {
-        id: "evaluasi-link",
-        title: "Evaluasi",
-        icon: ClipboardCheck,
-        path: "/evaluasi-feedback",
-      },
-      {
-        id: "profile-link",
-        title: "Profile",
-        icon: UserRound,
-        path: "/profile",
-      }
-    )
+    items.push({
+      id: "profile-link",
+      title: "Profile",
+      icon: UserRound,
+      path: "/profile",
+    })
 
     return items
   }
 
-  if (["adminPSP", "mentor", "coMentor"].includes(roleKey)) {
+  if (["mentor", "coMentor"].includes(roleKey)) {
     items.push({
       id: "management-mentor",
-      title: "Management Mentor",
+      title: "Management Mentee",
       icon: Users,
       children: mentorChildren,
     })
@@ -298,30 +284,36 @@ function getNavigation(
   if (roleKey === "adminPSP") {
     items.push(
       {
-        id: "management-admin",
-        title: "Management Class",
-        icon: ShieldCheck,
-        children: adminChildren,
+        id: "daftar-pengguna",
+        title: "Pengguna",
+        icon: Users,
+        path: "/daftar-pengguna",
       },
       {
-        id: "data-mentor",
-        title: "Management Mentor",
-        icon: Users,
-        children: dataMentorChildren,
+        id: "management-admin",
+        title: "Courses",
+        icon: ShieldCheck,
+        path: "/class",
+        section: "batch-list",
+      },
+      {
+        id: "classes-link",
+        title: "Classes",
+        icon: Layers3,
+        path: "/classes",
+      },
+      {
+        id: "leaderboard-link",
+        title: "Leaderboard",
+        icon: BarChart2,
+        path: "/leaderboard",
       }
     )
   }
 
-  if (["adminPSP", "examiner"].includes(roleKey)) {
-    items.push({
-      id: "management-penguji",
-      title: "Management Penguji",
-      icon: ClipboardCheck,
-      children: examinerChildren,
-    })
-  }
-
-  if (["adminPSP", "mentor", "coMentor", "examiner"].includes(roleKey)) {
+  if (
+    ["adminPSP", "mentor", "coMentor", "examiner"].includes(roleKey as string)
+  ) {
     items.push({
       id: "evaluasi-link",
       title: "Evaluasi",

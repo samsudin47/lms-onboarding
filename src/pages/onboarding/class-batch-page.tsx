@@ -7,7 +7,10 @@ import {
   ClipboardCheck,
   ImagePlus,
   PencilLine,
+  Plus,
+  Search,
   Settings2,
+  Star,
   Trash2,
   Users,
   X,
@@ -54,6 +57,8 @@ type BatchRow = {
   headerImage?: string
   status?: BatchStatus
   progress?: number
+  shortname?: string
+  visible?: "PUBLISH" | "DRAFT"
 }
 
 type MenteeRow = {
@@ -1118,6 +1123,18 @@ export default function ClassBatchPage() {
   >("all")
   const [showJourneyCompletionNotice, setShowJourneyCompletionNotice] =
     useState(false)
+  const [evalRatings, setEvalRatings] = useState<Record<string, number>>({})
+  const [evalComments, setEvalComments] = useState<Record<string, string>>({})
+  const [evalSubmitted, setEvalSubmitted] = useState<Record<string, boolean>>(
+    {}
+  )
+  const [batchSearch, setBatchSearch] = useState("")
+  const [batchShowEntries, setBatchShowEntries] = useState(20)
+  const [formShortname, setFormShortname] = useState("")
+  const [formVisible, setFormVisible] = useState<"PUBLISH" | "DRAFT">("PUBLISH")
+  const [formKategoriTrack, setFormKategoriTrack] = useState<ClassTrack | "">(
+    ""
+  )
 
   const filteredBatches = useMemo(
     () => batches.filter((batch) => batch.track === activeTrack),
@@ -1265,6 +1282,9 @@ export default function ClassBatchPage() {
     setGrading("")
     setHeaderImageFileName("")
     setHeaderImagePreview(null)
+    setFormShortname("")
+    setFormVisible("PUBLISH")
+    setFormKategoriTrack("")
   }
 
   function resetForm() {
@@ -1282,6 +1302,9 @@ export default function ClassBatchPage() {
     setGrading("")
     setHeaderImageFileName("")
     setHeaderImagePreview(null)
+    setFormShortname("")
+    setFormVisible("PUBLISH")
+    setFormKategoriTrack("")
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -1294,7 +1317,7 @@ export default function ClassBatchPage() {
       batch: batchLabel.trim() || "Batch 1",
       period: `${periodStart} s/d ${periodEnd}`,
       size: Math.max(1, Number.parseInt(size, 10) || 20),
-      track: activeTrack,
+      track: (formKategoriTrack || activeTrack) as ClassTrack,
       audience: audience.trim() || "Peserta onboarding sesuai kebutuhan",
       mentor: selectedMentors.join(", "),
       coMentor: selectedCoMentors.join(", "),
@@ -1303,6 +1326,8 @@ export default function ClassBatchPage() {
       grading: grading.trim() || "70% test • 30% tugas",
       calendarUrl: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(name.trim())}`,
       headerImage: headerImagePreview ?? undefined,
+      shortname: formShortname.trim() || undefined,
+      visible: formVisible,
     }
 
     setBatches((prev) => {
@@ -1332,6 +1357,9 @@ export default function ClassBatchPage() {
     setPeriodEnd("")
     setHeaderImageFileName(batch.headerImage ? "(gambar tersimpan)" : "")
     setHeaderImagePreview(batch.headerImage ?? null)
+    setFormShortname(batch.shortname ?? "")
+    setFormVisible(batch.visible ?? "PUBLISH")
+    setFormKategoriTrack(batch.track)
   }
 
   function deleteBatch(id: string) {
@@ -1890,9 +1918,6 @@ export default function ClassBatchPage() {
               )}
             >
               Mentor
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
-                {mentorCount}
-              </span>
             </button>
             <button
               type="button"
@@ -1907,9 +1932,6 @@ export default function ClassBatchPage() {
               )}
             >
               Co-Mentor
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
-                {coMentorCount}
-              </span>
             </button>
           </div>
         </section>
@@ -3138,6 +3160,19 @@ export default function ClassBatchPage() {
   const isManagementClassPage =
     permissions.canManageClass && activeSection === "batch-list"
 
+  const adminFilteredBatches = batches
+    .filter((b) => ["PKWT", "Pro Hire"].includes(b.track))
+    .filter(
+      (b) =>
+        !batchSearch ||
+        b.name.toLowerCase().includes(batchSearch.toLowerCase()) ||
+        b.track.toLowerCase().includes(batchSearch.toLowerCase()) ||
+        (b.shortname ?? b.batch)
+          .toLowerCase()
+          .includes(batchSearch.toLowerCase())
+    )
+  const adminDisplayedBatches = adminFilteredBatches.slice(0, batchShowEntries)
+
   return (
     <div className="space-y-5">
       {isCatalogPage ? (
@@ -3650,195 +3685,323 @@ export default function ClassBatchPage() {
           </div>
 
           {selectedJourneyBatch ? (
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-              <div className="space-y-4">
-                <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                  <div
-                    className="relative min-h-36 overflow-hidden p-5 text-white"
-                    style={{
-                      backgroundImage: `linear-gradient(135deg, rgba(15,23,42,0.42), rgba(37,99,235,0.5)), url(${selectedJourneyCoverImage})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-slate-950/10" />
-                    <div className="relative space-y-2">
-                      <p className="text-[11px] font-semibold tracking-[0.18em] text-white/90 uppercase">
-                        {selectedJourneyBatch.track}
-                      </p>
-                      <h3 className="text-xl font-semibold drop-shadow-sm">
-                        {selectedJourneyBatch.batch}
-                      </h3>
-                      <p className="max-w-2xl text-sm text-white/90">
-                        {selectedJourney.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 border-t p-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl bg-primary/5 px-3 py-3 text-sm">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Progress class
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-primary">
-                        {selectedJourneyBatch.progress ?? 0}%
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-primary/5 px-3 py-3 text-sm">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Tahap aktif
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-primary">
-                        {activeJourneyStep}/{selectedJourney.steps.length}
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-muted/60 px-3 py-3 text-sm">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Periode
-                      </p>
-                      <p className="mt-1 font-semibold">
-                        {selectedJourneyBatch.period}
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-muted/60 px-3 py-3 text-sm">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Mentor
-                      </p>
-                      <p className="mt-1 font-semibold">
-                        {selectedJourneyBatch.mentor}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <article className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                  <div className="flex items-start justify-between gap-3 border-b bg-[linear-gradient(135deg,#1e3a8a,#1d4ed8)] px-4 py-3 text-white">
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white">
-                        {activeJourneyStep}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-semibold">
-                          {selectedJourneyStep.title}
+            <>
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                    <div
+                      className="relative min-h-36 overflow-hidden p-5 text-white"
+                      style={{
+                        backgroundImage: `linear-gradient(135deg, rgba(15,23,42,0.42), rgba(37,99,235,0.5)), url(${selectedJourneyCoverImage})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-slate-950/10" />
+                      <div className="relative space-y-2">
+                        <p className="text-[11px] font-semibold tracking-[0.18em] text-white/90 uppercase">
+                          {selectedJourneyBatch.track}
+                        </p>
+                        <h3 className="text-xl font-semibold drop-shadow-sm">
+                          {selectedJourneyBatch.batch}
                         </h3>
-                        <p className="text-sm text-white/80">
-                          {selectedJourneyStep.duration}
+                        <p className="max-w-2xl text-sm text-white/90">
+                          {selectedJourney.description}
                         </p>
                       </div>
                     </div>
-                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white">
-                      Tahap {activeJourneyStep}
-                    </span>
-                  </div>
 
-                  <div className="space-y-2 p-4">
-                    {selectedJourneyStep.items.map((item) => (
-                      <div
-                        key={`${selectedJourneyStep.title}-${item}`}
-                        className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-3 text-sm text-muted-foreground"
-                      >
-                        <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                        <span>{item}</span>
+                    <div className="grid gap-3 border-t p-4 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-xl bg-primary/5 px-3 py-3 text-sm">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Progress class
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-primary">
+                          {selectedJourneyBatch.progress ?? 0}%
+                        </p>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-                    {activeJourneyStep > 1 ? (
-                      <Button asChild variant="outline">
-                        <Link
-                          to={`/class?track=${toTrackQuery(selectedJourneyBatch.track)}&section=journey-detail&journey=${selectedJourneyBatch.id}&step=${activeJourneyStep - 1}`}
-                        >
-                          Tahap sebelumnya
-                        </Link>
-                      </Button>
-                    ) : (
-                      <div />
-                    )}
-
-                    {activeJourneyStep < selectedJourney.steps.length ? (
-                      <Button asChild>
-                        <Link
-                          to={`/class?track=${toTrackQuery(selectedJourneyBatch.track)}&section=journey-detail&journey=${selectedJourneyBatch.id}&step=${activeJourneyStep + 1}`}
-                        >
-                          Lanjut ke tahap berikutnya
-                        </Link>
-                      </Button>
-                    ) : (
-                      <Button type="button" onClick={handleFinishJourneyTest}>
-                        Selesai
-                      </Button>
-                    )}
-                  </div>
-                </article>
-              </div>
-
-              <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-                <div className="rounded-xl border bg-card p-4 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between gap-2">
-                    <div>
-                      <h3 className="text-base font-semibold">
-                        Stepper Tahapan
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Klik tiap tahap untuk membuka halaman proses yang
-                        berbeda.
-                      </p>
+                      <div className="rounded-xl bg-primary/5 px-3 py-3 text-sm">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Tahap aktif
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-primary">
+                          {activeJourneyStep}/{selectedJourney.steps.length}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-muted/60 px-3 py-3 text-sm">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Periode
+                        </p>
+                        <p className="mt-1 font-semibold">
+                          {selectedJourneyBatch.period}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-muted/60 px-3 py-3 text-sm">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Mentor
+                        </p>
+                        <p className="mt-1 font-semibold">
+                          {selectedJourneyBatch.mentor}
+                        </p>
+                      </div>
                     </div>
-                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                      Tahap {activeJourneyStep}
-                    </span>
                   </div>
 
-                  <div className="space-y-2">
-                    {selectedJourney.steps.map((step, index) => {
-                      const stepNumber = index + 1
-                      const isActiveStep = stepNumber === activeJourneyStep
-                      const isCompletedStep = stepNumber < activeJourneyStep
+                  <article className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                    <div className="flex items-start justify-between gap-3 border-b bg-[linear-gradient(135deg,#1e3a8a,#1d4ed8)] px-4 py-3 text-white">
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white">
+                          {activeJourneyStep}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-semibold">
+                            {selectedJourneyStep.title}
+                          </h3>
+                          <p className="text-sm text-white/80">
+                            {selectedJourneyStep.duration}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white">
+                        Tahap {activeJourneyStep}
+                      </span>
+                    </div>
 
-                      return (
-                        <Link
-                          key={`${selectedJourneyBatch.id}-${step.title}`}
-                          to={`/class?track=${toTrackQuery(selectedJourneyBatch.track)}&section=journey-detail&journey=${selectedJourneyBatch.id}&step=${stepNumber}`}
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-sm transition",
-                            isActiveStep
-                              ? "border-blue-300 bg-blue-50/70"
-                              : "border-border bg-white hover:border-blue-200 hover:bg-blue-50/30",
-                            isCompletedStep &&
-                              "border-emerald-200 bg-emerald-50/40"
-                          )}
+                    <div className="space-y-2 p-4">
+                      {selectedJourneyStep.items.map((item) => (
+                        <div
+                          key={`${selectedJourneyStep.title}-${item}`}
+                          className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-3 text-sm text-muted-foreground"
                         >
-                          <div
+                          <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+                      {activeJourneyStep > 1 ? (
+                        <Button asChild variant="outline">
+                          <Link
+                            to={`/class?track=${toTrackQuery(selectedJourneyBatch.track)}&section=journey-detail&journey=${selectedJourneyBatch.id}&step=${activeJourneyStep - 1}`}
+                          >
+                            Tahap sebelumnya
+                          </Link>
+                        </Button>
+                      ) : (
+                        <div />
+                      )}
+
+                      {activeJourneyStep < selectedJourney.steps.length ? (
+                        <Button asChild>
+                          <Link
+                            to={`/class?track=${toTrackQuery(selectedJourneyBatch.track)}&section=journey-detail&journey=${selectedJourneyBatch.id}&step=${activeJourneyStep + 1}`}
+                          >
+                            Lanjut ke tahap berikutnya
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button type="button" onClick={handleFinishJourneyTest}>
+                          Selesai
+                        </Button>
+                      )}
+                    </div>
+                  </article>
+                </div>
+
+                <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+                  <div className="rounded-xl border bg-card p-4 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-base font-semibold">
+                          Stepper Tahapan
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Klik tiap tahap untuk membuka halaman proses yang
+                          berbeda.
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                        Tahap {activeJourneyStep}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {selectedJourney.steps.map((step, index) => {
+                        const stepNumber = index + 1
+                        const isActiveStep = stepNumber === activeJourneyStep
+                        const isCompletedStep = stepNumber < activeJourneyStep
+
+                        return (
+                          <Link
+                            key={`${selectedJourneyBatch.id}-${step.title}`}
+                            to={`/class?track=${toTrackQuery(selectedJourneyBatch.track)}&section=journey-detail&journey=${selectedJourneyBatch.id}&step=${stepNumber}`}
                             className={cn(
-                              "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+                              "flex items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-sm transition",
                               isActiveStep
-                                ? "bg-[linear-gradient(135deg,#1e3a8a,#2563eb)] text-white"
-                                : isCompletedStep
-                                  ? "bg-emerald-500 text-white"
-                                  : "bg-slate-200 text-slate-700"
+                                ? "border-blue-300 bg-blue-50/70"
+                                : "border-border bg-white hover:border-blue-200 hover:bg-blue-50/30",
+                              isCompletedStep &&
+                                "border-emerald-200 bg-emerald-50/40"
                             )}
                           >
-                            {stepNumber}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-foreground">
-                              {step.title}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {step.duration}
-                            </p>
-                          </div>
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                            Halaman {stepNumber}
-                          </span>
-                        </Link>
-                      )
-                    })}
+                            <div
+                              className={cn(
+                                "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+                                isActiveStep
+                                  ? "bg-[linear-gradient(135deg,#1e3a8a,#2563eb)] text-white"
+                                  : isCompletedStep
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-slate-200 text-slate-700"
+                              )}
+                            >
+                              {stepNumber}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-foreground">
+                                {step.title}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {step.duration}
+                              </p>
+                            </div>
+                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                              Halaman {stepNumber}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
                   </div>
+                </aside>
+              </div>
+
+              {permissions.key === "participant" && (
+                <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                  <div className="border-b px-5 py-4">
+                    <h3 className="text-base font-semibold">Evaluasi Kelas</h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Berikan penilaian Anda untuk kelas{" "}
+                      <strong>{selectedJourneyBatch.name}</strong>.
+                    </p>
+                  </div>
+                  {evalSubmitted[selectedJourneyBatch.id] ? (
+                    <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
+                      <div className="flex size-14 items-center justify-center rounded-full bg-emerald-100">
+                        <ClipboardCheck className="size-7 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-base font-semibold">
+                          Evaluasi Terkirim!
+                        </p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          Terima kasih atas penilaian Anda untuk kelas ini.
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={cn(
+                              "size-5",
+                              star <=
+                                (evalRatings[selectedJourneyBatch.id] ?? 0)
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-muted-foreground/30"
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-5 p-5">
+                      <div>
+                        <p className="mb-2 text-sm font-medium">Rating Kelas</p>
+                        <div className="flex gap-1.5">
+                          {[1, 2, 3, 4, 5].map((star) => {
+                            const currentRating =
+                              evalRatings[selectedJourneyBatch.id] ?? 0
+                            return (
+                              <button
+                                key={star}
+                                type="button"
+                                className="cursor-pointer rounded p-0.5 transition hover:scale-110"
+                                onClick={() =>
+                                  setEvalRatings((prev) => ({
+                                    ...prev,
+                                    [selectedJourneyBatch.id]: star,
+                                  }))
+                                }
+                              >
+                                <Star
+                                  className={cn(
+                                    "size-8 transition",
+                                    star <= currentRating
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "text-muted-foreground/40"
+                                  )}
+                                />
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {(evalRatings[selectedJourneyBatch.id] ?? 0) > 0 && (
+                          <p className="mt-1.5 text-sm text-muted-foreground">
+                            {
+                              [
+                                "",
+                                "Sangat Buruk",
+                                "Buruk",
+                                "Cukup",
+                                "Baik",
+                                "Sangat Baik",
+                              ][evalRatings[selectedJourneyBatch.id]]
+                            }
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label
+                          className="mb-2 block text-sm font-medium"
+                          htmlFor="eval-comment"
+                        >
+                          Catatan / Umpan Balik
+                        </label>
+                        <textarea
+                          id="eval-comment"
+                          rows={4}
+                          placeholder="Tuliskan pendapat Anda mengenai materi, penyampaian, dan pengalaman belajar di kelas ini..."
+                          className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                          value={evalComments[selectedJourneyBatch.id] ?? ""}
+                          onChange={(e) =>
+                            setEvalComments((prev) => ({
+                              ...prev,
+                              [selectedJourneyBatch.id]: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          disabled={
+                            !(evalRatings[selectedJourneyBatch.id] ?? 0)
+                          }
+                          onClick={() =>
+                            setEvalSubmitted((prev) => ({
+                              ...prev,
+                              [selectedJourneyBatch.id]: true,
+                            }))
+                          }
+                        >
+                          Kirim Evaluasi
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </aside>
-            </div>
+              )}
+            </>
           ) : (
             <div className="rounded-xl border border-dashed bg-card p-5 text-sm text-muted-foreground shadow-sm">
               Pilih class terlebih dahulu dari katalog untuk melihat tahapan
@@ -4298,149 +4461,196 @@ export default function ClassBatchPage() {
         </section>
       ) : isManagementClassPage ? (
         <section className="space-y-4">
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold">
-                  List batch pada my class
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Daftar batch aktif untuk track <strong>{activeTrack}</strong>
-                  ditampilkan di sini, dan Admin PSP dapat menambah class/batch
-                  langsung dari halaman ini.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                  {filteredBatches.length} batch
-                </span>
-                <Button type="button" size="sm" onClick={openCreateForm}>
-                  Tambah class/batch
-                </Button>
-              </div>
+          {/* Controls row */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              show
+              <select
+                value={batchShowEntries}
+                onChange={(e) => setBatchShowEntries(Number(e.target.value))}
+                className="rounded-md border bg-background px-2 py-1 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              entries
             </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={batchSearch}
+                  onChange={(e) => setBatchSearch(e.target.value)}
+                  className="w-56 pl-9"
+                />
+              </div>
+              <Button type="button" onClick={openCreateForm}>
+                <Plus className="size-4" />
+                Tambah Courses
+              </Button>
+            </div>
+          </div>
 
-            <div className="mt-4 overflow-x-auto rounded-xl border bg-background">
-              <table className="min-w-full text-sm">
-                <thead className="bg-muted/60 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Nama batch</th>
-                    <th className="px-4 py-3 font-medium">Periode</th>
-                    <th className="px-4 py-3 font-medium">Peserta</th>
-                    <th className="px-4 py-3 font-medium">Deadline</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 text-center font-medium">Aksi</th>
+          {/* Unified table */}
+          <div className="overflow-hidden rounded-xl border shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+                    <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                      #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                      Kategori
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                      Fullname
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                      Shortname
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                      Visible
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                      Sertifikat
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold tracking-wide uppercase">
+                      <Settings2 className="mx-auto size-4" />
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {filteredBatches.length ? (
-                    filteredBatches.map((batch) => (
-                      <tr key={batch.id} className="border-t align-top">
-                        <td className="px-4 py-3">
-                          <p className="font-medium">{batch.name}</p>
-                          <p className="text-xs font-medium text-primary">
-                            {batch.batch}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {batch.audience}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {batch.period}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {batch.size} peserta
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {batch.deadline}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                              batch.status === "Selesai"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : batch.status === "Sedang Berjalan"
-                                  ? "bg-sky-100 text-sky-700"
-                                  : batch.status === "Unpassed"
-                                    ? "bg-rose-100 text-rose-700"
-                                    : "bg-slate-100 text-slate-600"
-                            )}
-                          >
-                            {batch.status ?? "Belum Dimulai"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap justify-center gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => startEdit(batch)}
-                            >
-                              <PencilLine className="size-4" />
-                              Edit
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => deleteBatch(batch.id)}
-                            >
-                              <Trash2 className="size-4" />
-                              Hapus
-                            </Button>
-                            <Button
-                              asChild
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                            >
-                              <Link
-                                to={`/class?track=${toTrackQuery(batch.track)}&section=batch-setting&batch=${batch.id}`}
-                                title="Setting"
-                                aria-label={`Setting ${batch.name}`}
-                              >
-                                <Settings2 className="size-4" />
-                                Setting
-                              </Link>
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
+                <tbody className="divide-y">
+                  {adminDisplayedBatches.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
-                        className="px-4 py-6 text-center text-sm text-muted-foreground"
+                        colSpan={8}
+                        className="py-10 text-center text-muted-foreground"
                       >
-                        Belum ada batch aktif untuk track{" "}
-                        <strong>{activeTrack}</strong>.
+                        Tidak ada course ditemukan.
                       </td>
                     </tr>
+                  ) : (
+                    adminDisplayedBatches.map((batch, index) => {
+                      const visibleStatus =
+                        batch.visible ??
+                        (batch.status === "Selesai" ||
+                        batch.status === "Sedang Berjalan"
+                          ? "PUBLISH"
+                          : "DRAFT")
+                      return (
+                        <tr
+                          key={batch.id}
+                          className={cn(
+                            "transition hover:bg-muted/40",
+                            index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                          )}
+                        >
+                          <td className="px-4 py-4 font-medium text-muted-foreground">
+                            {index + 1}
+                          </td>
+                          <td className="px-4 py-4 font-bold">
+                            {batch.track === "Pro Hire"
+                              ? "Prohire"
+                              : batch.track}
+                          </td>
+                          <td className="px-4 py-4">{batch.name}</td>
+                          <td className="px-4 py-4 font-mono text-xs text-muted-foreground">
+                            {batch.shortname ||
+                              batch.batch.toLowerCase().replace(/\s+/g, "_")}
+                          </td>
+                          <td className="px-4 py-4 text-muted-foreground">
+                            {batch.period}
+                          </td>
+                          <td className="px-4 py-4">
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold",
+                                visibleStatus === "PUBLISH"
+                                  ? "border-emerald-400 text-emerald-600"
+                                  : "border-slate-300 text-slate-500"
+                              )}
+                            >
+                              {visibleStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <button
+                              type="button"
+                              className="cursor-pointer rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-700"
+                            >
+                              Unduh
+                            </button>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(batch)}
+                                className="cursor-pointer text-muted-foreground transition hover:text-primary"
+                                title="Edit"
+                              >
+                                <PencilLine className="size-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteBatch(batch.id)}
+                                className="cursor-pointer text-muted-foreground transition hover:text-red-500"
+                                title="Hapus"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                              <Button
+                                asChild
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                title="Setting"
+                              >
+                                <Link
+                                  to={`/class?track=${toTrackQuery(batch.track)}&section=batch-setting&batch=${batch.id}`}
+                                >
+                                  <Settings2 className="size-4" />
+                                </Link>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
+          <p className="text-xs text-muted-foreground">
+            Menampilkan {adminDisplayedBatches.length} dari{" "}
+            {adminFilteredBatches.length} course
+          </p>
+
           {showBatchForm ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
-              <div className="w-full max-w-2xl rounded-2xl border bg-background shadow-2xl">
+              <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-background shadow-2xl">
                 <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <Users className="size-4 text-primary" />
                       <h2 className="text-lg font-semibold">
-                        {editingId ? "Edit class" : "Tambah class / batch"}
+                        {editingId ? "Edit course" : "Tambah course"}
                       </h2>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Admin PSP dapat menentukan peserta onboarding, deadline
-                      tiap tahapan, skema nilai, serta menyiapkan assignment
-                      mentor dan co-mentor untuk class {activeTrack}.
+                      Admin PSP dapat menentukan kategori, peserta onboarding,
+                      deadline tiap tahapan, dan skema penilaian.
                     </p>
                   </div>
 
@@ -4456,18 +4666,60 @@ export default function ClassBatchPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
+                  {/* Kategori Course */}
+                  <div>
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor="kategori-course"
+                    >
+                      Kategori Course <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="kategori-course"
+                      className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                      value={formKategoriTrack}
+                      onChange={(e) =>
+                        setFormKategoriTrack(e.target.value as ClassTrack)
+                      }
+                      required
+                    >
+                      <option value="">Choose Kategori</option>
+                      <option value="PKWT">PKWT</option>
+                      <option value="Pro Hire">Prohire</option>
+                      <option value="MT/Organik">Magang Trainee</option>
+                    </select>
+                  </div>
+
+                  {/* Fullname */}
                   <div>
                     <label className="text-sm font-medium" htmlFor="batch-name">
-                      Nama class
+                      Fullname course
                     </label>
                     <Input
                       id="batch-name"
                       className="mt-2"
-                      placeholder={`${activeTrack} Mei 2026`}
+                      placeholder="Contoh: Training Dasar PKWT"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       required
                     />
+                  </div>
+
+                  {/* Shortname */}
+                  <div>
+                    <label className="text-sm font-medium" htmlFor="shortname">
+                      Shortname
+                    </label>
+                    <Input
+                      id="shortname"
+                      className="mt-2 font-mono"
+                      placeholder="Contoh: pkwt_base"
+                      value={formShortname}
+                      onChange={(event) => setFormShortname(event.target.value)}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Kode unik untuk course (tanpa spasi).
+                    </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -4556,6 +4808,24 @@ export default function ClassBatchPage() {
                     </div>
                   </div>
 
+                  {/* Visible */}
+                  <div>
+                    <label className="text-sm font-medium" htmlFor="visible">
+                      Visible
+                    </label>
+                    <select
+                      id="visible"
+                      className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                      value={formVisible}
+                      onChange={(e) =>
+                        setFormVisible(e.target.value as "PUBLISH" | "DRAFT")
+                      }
+                    >
+                      <option value="PUBLISH">PUBLISH</option>
+                      <option value="DRAFT">DRAFT</option>
+                    </select>
+                  </div>
+
                   <div className="grid gap-3 sm:grid-cols-2">
                     <MultiSelectField
                       id="mentor"
@@ -4632,8 +4902,7 @@ export default function ClassBatchPage() {
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground">
-                          Format yang didukung: JPG, PNG, WEBP. Gambar akan
-                          ditampilkan sebagai header card class.
+                          Format yang didukung: JPG, PNG, WEBP.
                         </p>
                       )}
                     </div>
@@ -4654,7 +4923,7 @@ export default function ClassBatchPage() {
                         className="mt-2"
                       />
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Format file yang didukung: `.xlsx`, `.xls`, atau `.csv`.
+                        Format: `.xlsx`, `.xls`, atau `.csv`.
                       </p>
                     </div>
 
@@ -4677,7 +4946,7 @@ export default function ClassBatchPage() {
                       Batal
                     </Button>
                     <Button type="submit">
-                      {editingId ? "Update class" : "Simpan class"}
+                      {editingId ? "Update course" : "Simpan course"}
                     </Button>
                   </div>
                 </form>

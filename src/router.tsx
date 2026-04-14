@@ -17,6 +17,10 @@ import JourneyOnboardingPage from "@/pages/onboarding/journey-onboarding-page"
 import LearningModulesPage from "@/pages/onboarding/learning-modules-page"
 import NotificationsRemindersPage from "@/pages/onboarding/notifications-reminders-page"
 import RecruitmentIntegrationPage from "@/pages/onboarding/recruitment-integration-page"
+import PengujiPage from "@/pages/onboarding/penguji-page"
+import DaftarPenggunaPage from "@/pages/onboarding/daftar-pengguna-page"
+import ClassesPage from "@/pages/onboarding/classes-page"
+import LeaderboardPage from "@/pages/onboarding/leaderboard-page"
 
 export const router = createBrowserRouter([
   {
@@ -78,6 +82,22 @@ export const router = createBrowserRouter([
       {
         path: "class",
         element: <ClassBatchPage />,
+      },
+      {
+        path: "penguji",
+        element: <PengujiPage />,
+      },
+      {
+        path: "daftar-pengguna",
+        element: <DaftarPenggunaPage />,
+      },
+      {
+        path: "classes",
+        element: <ClassesPage />,
+      },
+      {
+        path: "leaderboard",
+        element: <LeaderboardPage />,
       },
       {
         path: "profile",
