@@ -1881,11 +1881,6 @@ export default function ClassBatchPage() {
   }, [activeSection, questionDraft.completed, selectedBatch])
 
   if (permissions.canManageClass && isDataMentorPage) {
-    const mentorCount = mentorRecords.filter((r) => r.role === "Mentor").length
-    const coMentorCount = mentorRecords.filter(
-      (r) => r.role === "Co-Mentor"
-    ).length
-
     return (
       <div className="space-y-5">
         <section className="rounded-xl border bg-card p-5 shadow-sm">

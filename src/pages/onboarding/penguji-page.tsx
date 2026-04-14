@@ -63,9 +63,6 @@ export default function PengujiPage() {
   const [formEmail, setFormEmail] = useState("")
   const [formInstitution, setFormInstitution] = useState("")
 
-  const ekternalCount = records.filter((r) => r.type === "Eksternal").length
-  const internalCount = records.filter((r) => r.type === "Internal").length
-
   const filteredRecords = records.filter((r) => r.type === activePengujiType)
 
   function openForm() {

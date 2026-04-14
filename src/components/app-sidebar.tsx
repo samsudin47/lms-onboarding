@@ -112,32 +112,6 @@ const myClassChildren: NavigationNode[] = [
   },
 ]
 
-const adminChildren: NavigationNode[] = [
-  {
-    id: "admin-class-pkwt",
-    title: "PKWT",
-    path: "/class",
-    track: "pkwt",
-    section: "batch-list",
-  },
-  {
-    id: "admin-class-pro-hire",
-    title: "Prohire",
-    path: "/class",
-    track: "pro-hire",
-    section: "batch-list",
-  },
-]
-
-const dataMentorChildren: NavigationNode[] = [
-  {
-    id: "data-mentor-mentor",
-    title: "Mentor & Co-Mentor",
-    path: "/class",
-    section: "mentor",
-  },
-]
-
 const examinerChildren: NavigationNode[] = [
   {
     id: "examiner-participants",
