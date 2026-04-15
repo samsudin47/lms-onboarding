@@ -1,4 +1,4 @@
-import { useState } from "react"
+﻿import { useState } from "react"
 import { PencilLine, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -10,17 +10,7 @@ import { cn } from "@/lib/utils"
 // ─────────────────────────────────────────
 type UserStatus = "AKTIF" | "TIDAK AKTIF"
 
-type UserRow = {
-  id: string
-  nomorPokok: string
-  nama: string
-  kodeSTO: string
-  namaUnit: string
-  jabatan: string
-  status: UserStatus
-}
-
-type TabKey =
+type RoleKey =
   | "Onboarding"
   | "User"
   | "Mentor"
@@ -29,216 +19,18 @@ type TabKey =
   | "Superadmin"
   | "Penguji"
 
-// ─────────────────────────────────────────
-// Seed data per tab
-// ─────────────────────────────────────────
-const seedData: Record<TabKey, UserRow[]> = {
-  Onboarding: [
-    {
-      id: "ONB01",
-      nomorPokok: "ONB01",
-      nama: "Andi Pratama",
-      kodeSTO: "42D10",
-      namaUnit: "Unit IT",
-      jabatan: "Magang Trainee",
-      status: "AKTIF",
-    },
-    {
-      id: "ONB02",
-      nomorPokok: "ONB02",
-      nama: "Budi Santoso",
-      kodeSTO: "33X10",
-      namaUnit: "Unit SDM",
-      jabatan: "Magang Trainee",
-      status: "TIDAK AKTIF",
-    },
-    {
-      id: "ONB03",
-      nomorPokok: "ONB03",
-      nama: "Chandra Wijaya",
-      kodeSTO: "42D10",
-      namaUnit: "Unit IT",
-      jabatan: "Magang Trainee",
-      status: "AKTIF",
-    },
-    {
-      id: "ONB04",
-      nomorPokok: "ONB04",
-      nama: "Dedi Kurniawan",
-      kodeSTO: "33X10",
-      namaUnit: "Unit SDM",
-      jabatan: "Magang Trainee",
-      status: "AKTIF",
-    },
-    {
-      id: "ONB05",
-      nomorPokok: "ONB05",
-      nama: "Eko Prasetyo",
-      kodeSTO: "42D10",
-      namaUnit: "Unit IT",
-      jabatan: "Magang Trainee",
-      status: "AKTIF",
-    },
-    {
-      id: "ONB06",
-      nomorPokok: "ONB06",
-      nama: "Fajar Shodiq",
-      kodeSTO: "33X10",
-      namaUnit: "Unit SDM",
-      jabatan: "Magang Trainee",
-      status: "AKTIF",
-    },
-    {
-      id: "ONB07",
-      nomorPokok: "ONB07",
-      nama: "Gilang Ramadhan",
-      kodeSTO: "42D10",
-      namaUnit: "Unit IT",
-      jabatan: "Magang Trainee",
-      status: "AKTIF",
-    },
-  ],
-  User: [
-    {
-      id: "USR01",
-      nomorPokok: "USR01",
-      nama: "Hendra Putra",
-      kodeSTO: "10A01",
-      namaUnit: "Unit Keuangan",
-      jabatan: "Staff",
-      status: "AKTIF",
-    },
-    {
-      id: "USR02",
-      nomorPokok: "USR02",
-      nama: "Indah Lestari",
-      kodeSTO: "22B05",
-      namaUnit: "Unit HRD",
-      jabatan: "Staff",
-      status: "AKTIF",
-    },
-    {
-      id: "USR03",
-      nomorPokok: "USR03",
-      nama: "Joko Widodo",
-      kodeSTO: "33X10",
-      namaUnit: "Unit SDM",
-      jabatan: "Senior Staff",
-      status: "TIDAK AKTIF",
-    },
-  ],
-  Mentor: [
-    {
-      id: "MNT01",
-      nomorPokok: "MNT01",
-      nama: "Rina Oktavia",
-      kodeSTO: "42D10",
-      namaUnit: "Unit IT",
-      jabatan: "Mentor",
-      status: "AKTIF",
-    },
-    {
-      id: "MNT02",
-      nomorPokok: "MNT02",
-      nama: "Bima Saputra",
-      kodeSTO: "22B05",
-      namaUnit: "Unit HRD",
-      jabatan: "Mentor",
-      status: "AKTIF",
-    },
-    {
-      id: "MNT03",
-      nomorPokok: "MNT03",
-      nama: "Salsa Maharani",
-      kodeSTO: "33X10",
-      namaUnit: "Unit SDM",
-      jabatan: "Mentor",
-      status: "AKTIF",
-    },
-  ],
-  "Co-Mentor": [
-    {
-      id: "COM01",
-      nomorPokok: "COM01",
-      nama: "Tono Santoso",
-      kodeSTO: "42D10",
-      namaUnit: "Unit IT",
-      jabatan: "Co-Mentor",
-      status: "AKTIF",
-    },
-    {
-      id: "COM02",
-      nomorPokok: "COM02",
-      nama: "Wulan Sari",
-      kodeSTO: "22B05",
-      namaUnit: "Unit HRD",
-      jabatan: "Co-Mentor",
-      status: "AKTIF",
-    },
-  ],
-  "Admin PSP": [
-    {
-      id: "ADM01",
-      nomorPokok: "ADM01",
-      nama: "Admin Peruri",
-      kodeSTO: "00P00",
-      namaUnit: "Unit PSP",
-      jabatan: "Admin PSP",
-      status: "AKTIF",
-    },
-  ],
-  Superadmin: [
-    {
-      id: "SUP01",
-      nomorPokok: "SUP01",
-      nama: "Super Admin",
-      kodeSTO: "00P00",
-      namaUnit: "Unit PSP",
-      jabatan: "Superadmin",
-      status: "AKTIF",
-    },
-  ],
-  Penguji: [
-    {
-      id: "PNJ01",
-      nomorPokok: "PNJ01",
-      nama: "Dr. Ahmad Fauzi",
-      kodeSTO: "EXT01",
-      namaUnit: "Eksternal",
-      jabatan: "Penguji Eksternal",
-      status: "AKTIF",
-    },
-    {
-      id: "PNJ02",
-      nomorPokok: "PNJ02",
-      nama: "Ir. Soekarno",
-      kodeSTO: "EXT02",
-      namaUnit: "Eksternal",
-      jabatan: "Penguji Eksternal",
-      status: "AKTIF",
-    },
-    {
-      id: "PNJ03",
-      nomorPokok: "PNJ03",
-      nama: "Putri Rahayu",
-      kodeSTO: "42D10",
-      namaUnit: "Unit IT",
-      jabatan: "Penguji Internal",
-      status: "AKTIF",
-    },
-    {
-      id: "PNJ04",
-      nomorPokok: "PNJ04",
-      nama: "Rizky Firmansyah",
-      kodeSTO: "33X10",
-      namaUnit: "Unit SDM",
-      jabatan: "Penguji Internal",
-      status: "TIDAK AKTIF",
-    },
-  ],
+type UserRow = {
+  id: string
+  nomorPokok: string
+  nama: string
+  kodeSTO: string
+  namaUnit: string
+  jabatan: string
+  role: RoleKey
+  status: UserStatus
 }
 
-const ALL_TABS: TabKey[] = [
+const ALL_ROLES: RoleKey[] = [
   "Onboarding",
   "User",
   "Mentor",
@@ -249,10 +41,240 @@ const ALL_TABS: TabKey[] = [
 ]
 
 // ─────────────────────────────────────────
-// Helpers
+// Seed data (flat list)
 // ─────────────────────────────────────────
-function buildPrefix(tab: TabKey): string {
-  const map: Record<TabKey, string> = {
+const seedUsers: UserRow[] = [
+  // Onboarding
+  {
+    id: "ONB01",
+    nomorPokok: "ONB01",
+    nama: "Andi Pratama",
+    kodeSTO: "42D10",
+    namaUnit: "Unit IT",
+    jabatan: "Magang Trainee",
+    role: "Onboarding",
+    status: "AKTIF",
+  },
+  {
+    id: "ONB02",
+    nomorPokok: "ONB02",
+    nama: "Budi Santoso",
+    kodeSTO: "33X10",
+    namaUnit: "Unit SDM",
+    jabatan: "Magang Trainee",
+    role: "Onboarding",
+    status: "TIDAK AKTIF",
+  },
+  {
+    id: "ONB03",
+    nomorPokok: "ONB03",
+    nama: "Chandra Wijaya",
+    kodeSTO: "42D10",
+    namaUnit: "Unit IT",
+    jabatan: "Magang Trainee",
+    role: "Onboarding",
+    status: "AKTIF",
+  },
+  {
+    id: "ONB04",
+    nomorPokok: "ONB04",
+    nama: "Dedi Kurniawan",
+    kodeSTO: "33X10",
+    namaUnit: "Unit SDM",
+    jabatan: "Magang Trainee",
+    role: "Onboarding",
+    status: "AKTIF",
+  },
+  {
+    id: "ONB05",
+    nomorPokok: "ONB05",
+    nama: "Eko Prasetyo",
+    kodeSTO: "42D10",
+    namaUnit: "Unit IT",
+    jabatan: "Magang Trainee",
+    role: "Onboarding",
+    status: "AKTIF",
+  },
+  {
+    id: "ONB06",
+    nomorPokok: "ONB06",
+    nama: "Fajar Shodiq",
+    kodeSTO: "33X10",
+    namaUnit: "Unit SDM",
+    jabatan: "Magang Trainee",
+    role: "Onboarding",
+    status: "AKTIF",
+  },
+  {
+    id: "ONB07",
+    nomorPokok: "ONB07",
+    nama: "Gilang Ramadhan",
+    kodeSTO: "42D10",
+    namaUnit: "Unit IT",
+    jabatan: "Magang Trainee",
+    role: "Onboarding",
+    status: "AKTIF",
+  },
+  // User
+  {
+    id: "USR01",
+    nomorPokok: "USR01",
+    nama: "Hendra Putra",
+    kodeSTO: "10A01",
+    namaUnit: "Unit Keuangan",
+    jabatan: "Staff",
+    role: "User",
+    status: "AKTIF",
+  },
+  {
+    id: "USR02",
+    nomorPokok: "USR02",
+    nama: "Indah Lestari",
+    kodeSTO: "22B05",
+    namaUnit: "Unit HRD",
+    jabatan: "Staff",
+    role: "User",
+    status: "AKTIF",
+  },
+  {
+    id: "USR03",
+    nomorPokok: "USR03",
+    nama: "Joko Widodo",
+    kodeSTO: "33X10",
+    namaUnit: "Unit SDM",
+    jabatan: "Senior Staff",
+    role: "User",
+    status: "TIDAK AKTIF",
+  },
+  // Mentor
+  {
+    id: "MNT01",
+    nomorPokok: "MNT01",
+    nama: "Rina Oktavia",
+    kodeSTO: "42D10",
+    namaUnit: "Unit IT",
+    jabatan: "Mentor",
+    role: "Mentor",
+    status: "AKTIF",
+  },
+  {
+    id: "MNT02",
+    nomorPokok: "MNT02",
+    nama: "Bima Saputra",
+    kodeSTO: "22B05",
+    namaUnit: "Unit HRD",
+    jabatan: "Mentor",
+    role: "Mentor",
+    status: "AKTIF",
+  },
+  {
+    id: "MNT03",
+    nomorPokok: "MNT03",
+    nama: "Salsa Maharani",
+    kodeSTO: "33X10",
+    namaUnit: "Unit SDM",
+    jabatan: "Mentor",
+    role: "Mentor",
+    status: "AKTIF",
+  },
+  // Co-Mentor
+  {
+    id: "COM01",
+    nomorPokok: "COM01",
+    nama: "Tono Santoso",
+    kodeSTO: "42D10",
+    namaUnit: "Unit IT",
+    jabatan: "Co-Mentor",
+    role: "Co-Mentor",
+    status: "AKTIF",
+  },
+  {
+    id: "COM02",
+    nomorPokok: "COM02",
+    nama: "Wulan Sari",
+    kodeSTO: "22B05",
+    namaUnit: "Unit HRD",
+    jabatan: "Co-Mentor",
+    role: "Co-Mentor",
+    status: "AKTIF",
+  },
+  // Admin PSP
+  {
+    id: "ADM01",
+    nomorPokok: "ADM01",
+    nama: "Admin Peruri",
+    kodeSTO: "00P00",
+    namaUnit: "Unit PSP",
+    jabatan: "Admin PSP",
+    role: "Admin PSP",
+    status: "AKTIF",
+  },
+  // Superadmin
+  {
+    id: "SUP01",
+    nomorPokok: "SUP01",
+    nama: "Super Admin",
+    kodeSTO: "00P00",
+    namaUnit: "Unit PSP",
+    jabatan: "Superadmin",
+    role: "Superadmin",
+    status: "AKTIF",
+  },
+  // Penguji
+  {
+    id: "PNJ01",
+    nomorPokok: "PNJ01",
+    nama: "Dr. Ahmad Fauzi",
+    kodeSTO: "EXT01",
+    namaUnit: "Eksternal",
+    jabatan: "Penguji Eksternal",
+    role: "Penguji",
+    status: "AKTIF",
+  },
+  {
+    id: "PNJ02",
+    nomorPokok: "PNJ02",
+    nama: "Ir. Soekarno",
+    kodeSTO: "EXT02",
+    namaUnit: "Eksternal",
+    jabatan: "Penguji Eksternal",
+    role: "Penguji",
+    status: "AKTIF",
+  },
+  {
+    id: "PNJ03",
+    nomorPokok: "PNJ03",
+    nama: "Putri Rahayu",
+    kodeSTO: "42D10",
+    namaUnit: "Unit IT",
+    jabatan: "Penguji Internal",
+    role: "Penguji",
+    status: "AKTIF",
+  },
+  {
+    id: "PNJ04",
+    nomorPokok: "PNJ04",
+    nama: "Rizky Firmansyah",
+    kodeSTO: "33X10",
+    namaUnit: "Unit SDM",
+    jabatan: "Penguji Internal",
+    role: "Penguji",
+    status: "TIDAK AKTIF",
+  },
+]
+
+const roleBadgeColors: Record<RoleKey, string> = {
+  Onboarding: "bg-blue-100 text-blue-700",
+  User: "bg-slate-100 text-slate-700",
+  Mentor: "bg-violet-100 text-violet-700",
+  "Co-Mentor": "bg-fuchsia-100 text-fuchsia-700",
+  "Admin PSP": "bg-amber-100 text-amber-700",
+  Superadmin: "bg-rose-100 text-rose-700",
+  Penguji: "bg-teal-100 text-teal-700",
+}
+
+function generateId(users: UserRow[], role: RoleKey): string {
+  const prefixMap: Record<RoleKey, string> = {
     Onboarding: "ONB",
     User: "USR",
     Mentor: "MNT",
@@ -261,12 +283,9 @@ function buildPrefix(tab: TabKey): string {
     Superadmin: "SUP",
     Penguji: "PNJ",
   }
-  return map[tab]
-}
-
-function generateId(rows: UserRow[], tab: TabKey): string {
-  const prefix = buildPrefix(tab)
-  const nums = rows
+  const prefix = prefixMap[role]
+  const nums = users
+    .filter((r) => r.nomorPokok.startsWith(prefix))
     .map((r) => parseInt(r.nomorPokok.replace(prefix, ""), 10))
     .filter((n) => !isNaN(n))
   const next = nums.length ? Math.max(...nums) + 1 : 1
@@ -277,9 +296,8 @@ function generateId(rows: UserRow[], tab: TabKey): string {
 // Component
 // ─────────────────────────────────────────
 export default function DaftarPenggunaPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("Onboarding")
-  const [tableData, setTableData] =
-    useState<Record<TabKey, UserRow[]>>(seedData)
+  const [users, setUsers] = useState<UserRow[]>(seedUsers)
+  const [roleFilter, setRoleFilter] = useState<RoleKey | "All">("All")
   const [showEntries, setShowEntries] = useState(20)
   const [search, setSearch] = useState("")
 
@@ -291,18 +309,20 @@ export default function DaftarPenggunaPage() {
   const [formKodeSTO, setFormKodeSTO] = useState("")
   const [formNamaUnit, setFormNamaUnit] = useState("")
   const [formJabatan, setFormJabatan] = useState("")
+  const [formRole, setFormRole] = useState<RoleKey>("Onboarding")
   const [formStatus, setFormStatus] = useState<UserStatus>("AKTIF")
 
   // Delete confirm
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
-  const rows = tableData[activeTab]
-  const filtered = rows.filter(
-    (r) =>
-      r.nama.toLowerCase().includes(search.toLowerCase()) ||
-      r.nomorPokok.toLowerCase().includes(search.toLowerCase()) ||
-      r.namaUnit.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = users
+    .filter((r) => roleFilter === "All" || r.role === roleFilter)
+    .filter(
+      (r) =>
+        r.nama.toLowerCase().includes(search.toLowerCase()) ||
+        r.nomorPokok.toLowerCase().includes(search.toLowerCase()) ||
+        r.namaUnit.toLowerCase().includes(search.toLowerCase())
+    )
   const displayed = filtered.slice(0, showEntries)
 
   function openAdd() {
@@ -312,6 +332,7 @@ export default function DaftarPenggunaPage() {
     setFormKodeSTO("")
     setFormNamaUnit("")
     setFormJabatan("")
+    setFormRole(roleFilter !== "All" ? roleFilter : "Onboarding")
     setFormStatus("AKTIF")
     setShowModal(true)
   }
@@ -323,33 +344,31 @@ export default function DaftarPenggunaPage() {
     setFormKodeSTO(row.kodeSTO)
     setFormNamaUnit(row.namaUnit)
     setFormJabatan(row.jabatan)
+    setFormRole(row.role)
     setFormStatus(row.status)
     setShowModal(true)
   }
 
   function handleSave() {
     if (!formNama.trim()) return
-    setTableData((prev) => {
-      const current = [...prev[activeTab]]
+    setUsers((prev) => {
       if (editingId) {
-        return {
-          ...prev,
-          [activeTab]: current.map((r) =>
-            r.id === editingId
-              ? {
-                  ...r,
-                  nama: formNama,
-                  nomorPokok: formNomorPokok,
-                  kodeSTO: formKodeSTO,
-                  namaUnit: formNamaUnit,
-                  jabatan: formJabatan,
-                  status: formStatus,
-                }
-              : r
-          ),
-        }
+        return prev.map((r) =>
+          r.id === editingId
+            ? {
+                ...r,
+                nama: formNama,
+                nomorPokok: formNomorPokok,
+                kodeSTO: formKodeSTO,
+                namaUnit: formNamaUnit,
+                jabatan: formJabatan,
+                role: formRole,
+                status: formStatus,
+              }
+            : r
+        )
       }
-      const newId = generateId(current, activeTab)
+      const newId = generateId(prev, formRole)
       const newRow: UserRow = {
         id: newId,
         nomorPokok: formNomorPokok || newId,
@@ -357,20 +376,24 @@ export default function DaftarPenggunaPage() {
         kodeSTO: formKodeSTO,
         namaUnit: formNamaUnit,
         jabatan: formJabatan,
+        role: formRole,
         status: formStatus,
       }
-      return { ...prev, [activeTab]: [...current, newRow] }
+      return [...prev, newRow]
     })
     setShowModal(false)
   }
 
   function handleDelete(id: string) {
-    setTableData((prev) => ({
-      ...prev,
-      [activeTab]: prev[activeTab].filter((r) => r.id !== id),
-    }))
+    setUsers((prev) => prev.filter((r) => r.id !== id))
     setDeleteTargetId(null)
   }
+
+  const roleCounts = (["All", ...ALL_ROLES] as const).map((r) => ({
+    role: r,
+    count:
+      r === "All" ? users.length : users.filter((u) => u.role === r).length,
+  }))
 
   return (
     <section className="space-y-5">
@@ -383,7 +406,8 @@ export default function DaftarPenggunaPage() {
             </p>
             <h2 className="mt-1 text-2xl font-semibold">Daftar Pengguna</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Kelola seluruh pengguna sistem berdasarkan peran masing-masing.
+              Kelola seluruh pengguna sistem. Gunakan filter role untuk
+              mempersempit tampilan.
             </p>
           </div>
           <Button type="button" onClick={openAdd}>
@@ -393,28 +417,27 @@ export default function DaftarPenggunaPage() {
         </div>
       </div>
 
-      {/* Tabs + Table */}
+      {/* Table card */}
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        {/* Tab Row */}
-        <div className="flex flex-wrap gap-1 border-b px-4 pt-4">
-          {ALL_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => {
-                setActiveTab(tab)
-                setSearch("")
-              }}
-              className={cn(
-                "rounded-t-lg px-4 py-2 text-sm font-medium transition",
-                activeTab === tab
-                  ? "bg-[linear-gradient(135deg,#1e3a8a,#2563eb)] text-white shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              {tab}
-            </button>
-          ))}
+        {/* Role filter dropdown */}
+        <div className="flex items-center gap-3 border-b px-4 py-3">
+          <label className="text-sm font-medium whitespace-nowrap text-muted-foreground">
+            Filter Role
+          </label>
+          <select
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value as RoleKey | "All")
+              setSearch("")
+            }}
+            className="rounded-md border bg-background px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+          >
+            {roleCounts.map(({ role, count }) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="space-y-4 p-4">
@@ -436,7 +459,7 @@ export default function DaftarPenggunaPage() {
               entries
             </div>
             <Input
-              placeholder="Cari nama, nomor pokok, unit…"
+              placeholder="Cari nama, nomor pokok, unit..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-64"
@@ -449,13 +472,16 @@ export default function DaftarPenggunaPage() {
               <thead>
                 <tr className="bg-[linear-gradient(135deg,#1e3a8a,#5b21b6)] text-white">
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
-                    Ranking
+                    No
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                     Nomor Pokok
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                     Nama
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                    Role
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                     Kode STO
@@ -478,7 +504,7 @@ export default function DaftarPenggunaPage() {
                 {displayed.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="py-10 text-center text-muted-foreground"
                     >
                       Tidak ada data pengguna.
@@ -499,6 +525,16 @@ export default function DaftarPenggunaPage() {
                       <td className="px-4 py-3 font-bold">{row.nomorPokok}</td>
                       <td className="px-4 py-3 font-semibold uppercase">
                         {row.nama.toUpperCase()}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+                            roleBadgeColors[row.role]
+                          )}
+                        >
+                          {row.role}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {row.kodeSTO}
@@ -554,7 +590,7 @@ export default function DaftarPenggunaPage() {
         </div>
       </div>
 
-      {/* ── Add / Edit Modal ── */}
+      {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl">
@@ -579,6 +615,20 @@ export default function DaftarPenggunaPage() {
                   onChange={(e) => setFormNama(e.target.value)}
                   placeholder="Nama lengkap pengguna"
                 />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Role</label>
+                <select
+                  value={formRole}
+                  onChange={(e) => setFormRole(e.target.value as RoleKey)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                >
+                  {ALL_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">
@@ -638,7 +688,7 @@ export default function DaftarPenggunaPage() {
         </div>
       )}
 
-      {/* ── Delete Confirm ── */}
+      {/* Delete Confirm */}
       {deleteTargetId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-xl">

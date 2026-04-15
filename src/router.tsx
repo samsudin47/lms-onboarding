@@ -21,6 +21,8 @@ import PengujiPage from "@/pages/onboarding/penguji-page"
 import DaftarPenggunaPage from "@/pages/onboarding/daftar-pengguna-page"
 import ClassesPage from "@/pages/onboarding/classes-page"
 import LeaderboardPage from "@/pages/onboarding/leaderboard-page"
+import MasterFasePage from "@/pages/onboarding/master-fase-page"
+import MasterBagianEvaluasiPage from "@/pages/onboarding/master-bagian-evaluasi-page"
 
 export const router = createBrowserRouter([
   {
@@ -98,6 +100,14 @@ export const router = createBrowserRouter([
       {
         path: "leaderboard",
         element: <LeaderboardPage />,
+      },
+      {
+        path: "master-fase",
+        element: <MasterFasePage />,
+      },
+      {
+        path: "master-bagian-evaluasi",
+        element: <MasterBagianEvaluasiPage />,
       },
       {
         path: "profile",

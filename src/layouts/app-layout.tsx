@@ -50,7 +50,7 @@ function getClassHeaderCopy(section: string | null, track: string | null) {
     case "question-builder":
     case "mentee-review":
       return {
-        title: "Management Class",
+        title: "Classes",
         summary: `Kelola batch, peserta, dan progres ${trackLabel}.`,
       }
     case "mentor":

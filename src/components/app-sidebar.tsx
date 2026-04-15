@@ -3,8 +3,10 @@ import {
   BarChart2,
   ChevronDown,
   ClipboardCheck,
+  DatabaseZap,
   LayoutDashboard,
   Layers3,
+  ListChecks,
   ShieldCheck,
   UserRound,
   Users,
@@ -206,7 +208,6 @@ function getNavigation(
   const participantChildren = assignedTrack
     ? myClassChildren.filter((item) => item.track === assignedTrack)
     : myClassChildren
-  const defaultParticipantTrack = assignedTrack ?? "pkwt"
 
   const items: NavigationNode[] = [
     {
@@ -222,14 +223,6 @@ function getNavigation(
             title: "My Classes",
             icon: Layers3,
             children: participantChildren,
-          },
-          {
-            id: "class-link",
-            title: "Class",
-            icon: Layers3,
-            path: "/class",
-            track: defaultParticipantTrack,
-            section: "catalog",
           },
         ]
       : []),
@@ -265,14 +258,14 @@ function getNavigation(
       },
       {
         id: "management-admin",
-        title: "Courses",
+        title: "Classes",
         icon: ShieldCheck,
         path: "/class",
         section: "batch-list",
       },
       {
         id: "classes-link",
-        title: "Classes",
+        title: "Courses",
         icon: Layers3,
         path: "/classes",
       },
@@ -294,6 +287,23 @@ function getNavigation(
       icon: ClipboardCheck,
       path: "/evaluasi-feedback",
     })
+  }
+
+  if (roleKey === "adminPSP") {
+    items.push(
+      {
+        id: "master-fase-link",
+        title: "Master Fase",
+        icon: DatabaseZap,
+        path: "/master-fase",
+      },
+      {
+        id: "master-bagian-evaluasi-link",
+        title: "Master Bagian Evaluasi",
+        icon: ListChecks,
+        path: "/master-bagian-evaluasi",
+      }
+    )
   }
 
   items.push({

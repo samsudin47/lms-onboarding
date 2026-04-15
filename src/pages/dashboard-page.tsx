@@ -7,8 +7,8 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  Info,
-  TrendingUp,
+  Medal,
+  Star,
   Users,
 } from "lucide-react"
 
@@ -28,113 +28,58 @@ const adminStats = [
     icon: Users,
     color: "blue",
   },
+]
+
+// Top 8 performers across all classes
+const topPerformersAll = [
+  { rank: 1, name: "Doni Arief", batch: "Prohire", score: 96, progress: 98 },
+  { rank: 2, name: "Ayu Pratama", batch: "PKWT", score: 94, progress: 97 },
   {
-    label: "Batch Berjalan",
-    value: "3",
-    unit: "batch",
-    note: "PKWT · Prohire · MT/Organik",
-    icon: TrendingUp,
+    rank: 3,
+    name: "Rizky Fauzan",
+    batch: "MT/Organik",
+    score: 92,
+    progress: 95,
+  },
+  { rank: 4, name: "Budi Santoso", batch: "PKWT", score: 89, progress: 91 },
+  { rank: 5, name: "Siti Rahma", batch: "Prohire", score: 87, progress: 90 },
+  {
+    rank: 6,
+    name: "Hendra Wijaya",
+    batch: "MT/Organik",
+    score: 85,
+    progress: 88,
+  },
+  { rank: 7, name: "Melinda Sari", batch: "PKWT", score: 83, progress: 86 },
+  { rank: 8, name: "Fajar Nugroho", batch: "Prohire", score: 81, progress: 84 },
+]
+
+const rankColors = [
+  { bg: "bg-amber-400", text: "text-amber-900", label: "text-amber-700" }, // 1
+  { bg: "bg-slate-300", text: "text-slate-800", label: "text-slate-600" }, // 2
+  { bg: "bg-orange-300", text: "text-orange-900", label: "text-orange-700" }, // 3
+]
+
+// Best of 3 per batch
+const batchBestOf3 = [
+  {
+    batch: "PKWT",
+    color: "blue",
+    top3: [
+      { rank: 1, name: "Ayu Pratama", score: 94, progress: 97 },
+      { rank: 2, name: "Budi Santoso", score: 89, progress: 91 },
+      { rank: 3, name: "Melinda Sari", score: 83, progress: 86 },
+    ],
+  },
+  {
+    batch: "Prohire",
     color: "violet",
+    top3: [
+      { rank: 1, name: "Doni Arief", score: 96, progress: 98 },
+      { rank: 2, name: "Siti Rahma", score: 87, progress: 90 },
+      { rank: 3, name: "Fajar Nugroho", score: 81, progress: 84 },
+    ],
   },
-  {
-    label: "Evaluasi Menunggu",
-    value: "7",
-    unit: "peserta",
-    note: "Perlu validasi admin",
-    icon: ClipboardList,
-    color: "amber",
-  },
-]
-
-const batchProgress = [
-  {
-    name: "PKWT",
-    total: 10,
-    active: 8,
-    completed: 2,
-    completionPct: 20,
-    avgModulePct: 68,
-    href: "/class?track=pkwt&section=overview",
-  },
-  {
-    name: "Prohire",
-    total: 9,
-    active: 7,
-    completed: 2,
-    completionPct: 22,
-    avgModulePct: 54,
-    href: "/class?track=pro-hire&section=overview",
-  },
-  {
-    name: "MT/Organik",
-    total: 6,
-    active: 5,
-    completed: 1,
-    completionPct: 17,
-    avgModulePct: 41,
-    href: "/class?track=mt-organik&section=overview",
-  },
-]
-
-const priorityItems = [
-  {
-    type: "warning" as const,
-    text: "Dokumen belum ditandatangani: 4 peserta PKWT menunggu kontrak digital.",
-  },
-  {
-    type: "warning" as const,
-    text: "7 peserta memenuhi syarat evaluasi, belum divalidasi admin.",
-  },
-  {
-    type: "info" as const,
-    text: "Modul budaya kerja rata-rata 68% — ingatkan peserta lanjut ke video & kuis.",
-  },
-  {
-    type: "info" as const,
-    text: "Batch Prohire: 2 peserta belum melengkapi profil onboarding.",
-  },
-]
-
-const notificationItems = [
-  {
-    time: "09:00",
-    text: "Sesi welcome HR — tautkan ke kalender class",
-    today: true,
-  },
-  {
-    time: "13:00",
-    text: "Training tools batch April — 12 peserta terdaftar",
-    today: true,
-  },
-  {
-    time: "16:00",
-    text: "Deadline profil & dokumen — cek reminder otomatis",
-    today: true,
-  },
-  {
-    time: "Besok",
-    text: "Review modul kuis batch PKWT minggu ke-3",
-    today: false,
-  },
-]
-
-const moduleItems = [
-  {
-    label: "Pengenalan perusahaan",
-    pct: 85,
-    to: "/modul-pembelajaran-interaktif",
-  },
-  {
-    label: "Budaya kerja & video",
-    pct: 68,
-    to: "/modul-pembelajaran-interaktif",
-  },
-  {
-    label: "Pelatihan tools internal",
-    pct: 52,
-    to: "/modul-pembelajaran-interaktif",
-  },
-  { label: "Kuis & checklist", pct: 39, to: "/modul-pembelajaran-interaktif" },
 ]
 
 const participantClassSummary = {
@@ -844,33 +789,6 @@ export default function DashboardPage() {
       className="space-y-6 rounded-[28px] border border-slate-200/70 bg-white/90 p-4 shadow-sm sm:p-5"
       style={dashboardBackgroundStyle}
     >
-      {/* Header */}
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-semibold">Dashboard Admin PSP</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Ringkasan operasional onboarding harian — monitoring peserta,
-              evaluasi, dan reminder dalam satu halaman.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild size="sm">
-              <Link to="/class?section=batch-list">
-                Kelola batch
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/evaluasi-feedback">Buka evaluasi</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/notifikasi-reminder-otomatis">Atur reminder</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
       {/* Stats cards */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {adminStats.map((stat) => {
@@ -923,233 +841,150 @@ export default function DashboardPage() {
         })}
       </section>
 
-      {/* Batch progress */}
+      {/* ── Statistik Seluruh Kelas: Top 8 Performers ─────────────────── */}
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Progres per Batch</h2>
+          <div className="flex items-center gap-2">
+            <Medal className="size-4 text-amber-500" />
+            <h2 className="text-sm font-semibold">
+              Top Performer — Seluruh Kelas
+            </h2>
+          </div>
           <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-            <Link to="/class?section=batch-list">Lihat semua batch</Link>
+            <Link to="/leaderboard">Lihat leaderboard</Link>
           </Button>
         </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {batchProgress.map((batch) => (
-            <Link
-              key={batch.name}
-              to={batch.href}
-              className="group rounded-lg border border-slate-200/80 bg-slate-50/60 p-4 transition hover:border-blue-300 hover:bg-blue-50/40"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-800">{batch.name}</span>
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
-                  {batch.total} peserta
-                </span>
-              </div>
-              <div className="mt-3 space-y-2">
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Penyelesaian onboarding</span>
-                    <span className="font-medium text-slate-700">
-                      {batch.completionPct}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-blue-500 transition-all"
-                      style={{ width: `${batch.completionPct}%` }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Rata-rata progres modul</span>
-                    <span className="font-medium text-slate-700">
-                      {batch.avgModulePct}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${batch.avgModulePct}%`,
-                        backgroundColor:
-                          batch.avgModulePct >= 70
-                            ? "#22c55e"
-                            : batch.avgModulePct >= 50
-                              ? "#f59e0b"
-                              : "#ef4444",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 flex gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block size-2 rounded-full bg-teal-500" />
-                  Aktif: {batch.active}
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block size-2 rounded-full bg-blue-500" />
-                  Selesai: {batch.completed}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        {/* Prioritas hari ini */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-semibold">Prioritas Hari Ini</h2>
-          <ul className="mt-3 space-y-3">
-            {priorityItems.map((item, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm">
-                {item.type === "warning" ? (
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
-                ) : (
-                  <Info className="mt-0.5 size-4 shrink-0 text-blue-500" />
-                )}
-                <span className="text-muted-foreground">{item.text}</span>
-              </li>
-            ))}
-          </ul>
-          <Button asChild className="mt-4" variant="outline" size="sm">
-            <Link to="/riwayat-onboarding">Buka riwayat lengkap</Link>
-          </Button>
-        </div>
-
-        {/* Aksi cepat */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-semibold">Aksi Cepat Admin</h2>
-          <div className="mt-3 grid gap-2">
-            <Button asChild size="sm" className="justify-start">
-              <Link to="/class?section=batch-list">
-                Update batch onboarding
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="justify-start"
-            >
-              <Link to="/class?section=mentor">
-                Kelola mentor dan co-mentor
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="justify-start"
-            >
-              <Link to="/evaluasi-feedback">Validasi evaluasi peserta</Link>
-            </Button>
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="justify-start"
-            >
-              <Link to="/modul-pembelajaran-interaktif">
-                Review modul pembelajaran
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="justify-start"
-            >
-              <Link to="/notifikasi-reminder-otomatis">
-                Kelola notifikasi & reminder
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        {/* Modul prioritas */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Progres Modul Minggu Ini</h2>
-            <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-              <Link to="/modul-pembelajaran-interaktif">Lihat semua</Link>
-            </Button>
-          </div>
-          <ul className="mt-4 space-y-4">
-            {moduleItems.map((item) => (
-              <li key={item.label}>
-                <div className="mb-1.5 flex items-center justify-between text-sm">
-                  <Link
-                    className="font-medium text-primary underline-offset-4 hover:underline"
-                    to={item.to}
-                  >
-                    {item.label}
-                  </Link>
-                  <span
-                    className={`text-xs font-semibold ${
-                      item.pct >= 70
-                        ? "text-teal-600"
-                        : item.pct >= 50
-                          ? "text-amber-600"
-                          : "text-red-500"
-                    }`}
-                  >
-                    {item.pct}%
-                  </span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${item.pct}%`,
-                      backgroundColor:
-                        item.pct >= 70
-                          ? "#14b8a6"
-                          : item.pct >= 50
-                            ? "#f59e0b"
-                            : "#ef4444",
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Notifikasi */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Pusat Notifikasi Kegiatan</h2>
-            <BellRing className="size-4 text-muted-foreground" />
-          </div>
-          <ul className="mt-3 divide-y divide-slate-100">
-            {notificationItems.map((item, i) => (
-              <li key={i} className="flex items-start gap-3 py-3 text-sm">
-                <span
-                  className={`mt-0.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${
-                    item.today
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-slate-100 text-slate-500"
+        <p className="mt-1 text-xs text-muted-foreground">
+          8 peserta dengan skor & progres terbaik dari semua batch yang sedang
+          berjalan.
+        </p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {topPerformersAll.map((p) => {
+            const isTop3 = p.rank <= 3
+            const rc = rankColors[p.rank - 1]
+            return (
+              <div
+                key={p.rank}
+                className={`flex items-center gap-3 rounded-xl border p-3 ${
+                  isTop3
+                    ? "border-amber-200/80 bg-linear-to-br from-amber-50 to-orange-50"
+                    : "border-slate-200/70 bg-slate-50/60"
+                }`}
+              >
+                <div
+                  className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    isTop3
+                      ? `${rc.bg} ${rc.text}`
+                      : "bg-slate-200 text-slate-600"
                   }`}
                 >
-                  <Clock className="size-3" />
-                  {item.time}
-                </span>
-                <span className="text-muted-foreground">{item.text}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button asChild size="sm">
-              <Link to="/notifikasi-reminder-otomatis">Kelola notifikasi</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/class">Lihat jadwal class</Link>
-            </Button>
-          </div>
+                  {p.rank}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{p.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{p.batch}</p>
+                </div>
+                <div className="text-right">
+                  <p
+                    className={`text-sm font-semibold ${isTop3 ? rc.label : "text-slate-700"}`}
+                  >
+                    {p.score}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {p.progress}%
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* ── Statistik per Kelas: Best of 3 ────────────────────────────── */}
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Star className="size-4 text-violet-500" />
+          <h2 className="text-sm font-semibold">Best of 3 — Per Kelas/Batch</h2>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          3 peserta terbaik di masing-masing batch berdasarkan skor evaluasi.
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {batchBestOf3.map((cls) => {
+            const batchColorMap: Record<
+              string,
+              { header: string; border: string; bg: string; badge: string }
+            > = {
+              blue: {
+                header: "text-blue-700",
+                border: "border-blue-200/70",
+                bg: "bg-blue-50/60",
+                badge: "bg-blue-100 text-blue-700",
+              },
+              violet: {
+                header: "text-violet-700",
+                border: "border-violet-200/70",
+                bg: "bg-violet-50/60",
+                badge: "bg-violet-100 text-violet-700",
+              },
+              teal: {
+                header: "text-teal-700",
+                border: "border-teal-200/70",
+                bg: "bg-teal-50/60",
+                badge: "bg-teal-100 text-teal-700",
+              },
+            }
+            const bc = batchColorMap[cls.color]
+            return (
+              <div
+                key={cls.batch}
+                className={`rounded-xl border ${bc.border} ${bc.bg} p-4`}
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <span className={`text-sm font-semibold ${bc.header}`}>
+                    {cls.batch}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${bc.badge}`}
+                  >
+                    Top 3
+                  </span>
+                </div>
+                <ol className="space-y-2">
+                  {cls.top3.map((p) => {
+                    const isTop = p.rank === 1
+                    const rc = rankColors[p.rank - 1]
+                    return (
+                      <li key={p.rank} className="flex items-center gap-2">
+                        <div
+                          className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${rc.bg} ${rc.text}`}
+                        >
+                          {p.rank}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`truncate text-sm ${isTop ? "font-semibold" : "font-medium"}`}
+                          >
+                            {p.name}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p
+                            className={`text-sm font-semibold ${rc.label ?? "text-slate-700"}`}
+                          >
+                            {p.score}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {p.progress}%
+                          </p>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
+            )
+          })}
         </div>
       </section>
     </div>
