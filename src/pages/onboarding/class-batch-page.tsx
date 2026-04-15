@@ -7289,19 +7289,49 @@ export default function ClassBatchPage() {
         <section className="space-y-4">
           {permissions.key === "participant" ? (
             (() => {
-              const activeBatch =
-                filteredBatches.find(
-                  (batch) => batch.status === "Sedang Berjalan"
-                ) ??
-                filteredBatches.find(
-                  (batch) => batch.status === "Belum Dimulai"
-                ) ??
-                filteredBatches[0] ??
-                null
-              const otherBatches = filteredBatches.filter(
-                (batch) => batch.id !== activeBatch?.id
-              )
-              const journeyFases = JOURNEY_FASES_BY_TRACK[activeTrack] ?? []
+              const participantGroups: Array<{
+                title: string
+                status: BatchStatus
+                items: BatchRow[]
+              }> = (
+                [
+                  {
+                    title: "Passed",
+                    status: "Selesai",
+                    items: filteredBatches.filter(
+                      (batch) => (batch.status ?? "Belum Dimulai") === "Selesai"
+                    ),
+                  },
+                  {
+                    title: "On Progress",
+                    status: "Sedang Berjalan",
+                    items: filteredBatches.filter(
+                      (batch) =>
+                        (batch.status ?? "Belum Dimulai") === "Sedang Berjalan"
+                    ),
+                  },
+                  {
+                    title: "Belum Dimulai",
+                    status: "Belum Dimulai",
+                    items: filteredBatches.filter(
+                      (batch) =>
+                        (batch.status ?? "Belum Dimulai") === "Belum Dimulai"
+                    ),
+                  },
+                  {
+                    title: "Unpassed",
+                    status: "Unpassed",
+                    items: filteredBatches.filter(
+                      (batch) =>
+                        (batch.status ?? "Belum Dimulai") === "Unpassed"
+                    ),
+                  },
+                ] as Array<{
+                  title: string
+                  status: BatchStatus
+                  items: BatchRow[]
+                }>
+              ).filter((group) => group.items.length > 0)
 
               return (
                 <>
@@ -7315,171 +7345,117 @@ export default function ClassBatchPage() {
                     </p>
                   </div>
 
-                  {activeBatch ? (
-                    <>
-                      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                        <div
-                          className="relative min-h-32 overflow-hidden p-5 text-white"
-                          style={{
-                            backgroundImage: `linear-gradient(135deg, rgba(15,23,42,0.42), rgba(37,99,235,0.5)), url(${batchCoverImages.get(activeBatch.id) ?? courseImage})`,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                          }}
-                        >
-                          <div className="absolute inset-0 bg-slate-950/10" />
-                          <div className="relative">
+                  {participantGroups.length ? (
+                    <div className="space-y-6">
+                      {participantGroups.map((group) => (
+                        <div key={group.status} className="space-y-3">
+                          <div className="flex items-center gap-2">
                             <span
                               className={cn(
-                                "inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-                                activeBatch.status === "Selesai"
-                                  ? "bg-emerald-500/80 text-white"
-                                  : activeBatch.status === "Sedang Berjalan"
-                                    ? "bg-sky-500/80 text-white"
-                                    : "bg-slate-500/80 text-white"
+                                "rounded-full px-3 py-1 text-[11px] font-semibold uppercase",
+                                group.status === "Selesai"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : group.status === "Sedang Berjalan"
+                                    ? "bg-sky-100 text-sky-700"
+                                    : group.status === "Belum Dimulai"
+                                      ? "bg-slate-100 text-slate-700"
+                                      : "bg-rose-100 text-rose-700"
                               )}
                             >
-                              {activeBatch.status ?? "Belum Dimulai"}
+                              {group.title}
                             </span>
-                            <h3 className="mt-2 text-xl font-semibold drop-shadow-sm">
-                              {activeBatch.name}
-                            </h3>
-                            <p className="mt-0.5 text-sm text-white/85">
-                              {activeBatch.batch} • {activeBatch.period}
+                            <p className="text-xs text-muted-foreground">
+                              {group.items.length} kelas
                             </p>
                           </div>
-                        </div>
 
-                        <div className="grid gap-3 border-t p-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <div className="rounded-xl bg-primary/5 px-3 py-3">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Progress Kelas
-                            </p>
-                            <p className="mt-1 text-lg font-semibold text-primary">
-                              {activeBatch.progress ?? 0}%
-                            </p>
-                            <div className="mt-1 h-1.5 rounded-full bg-primary/10">
-                              <div
-                                className="h-1.5 rounded-full bg-primary"
-                                style={{
-                                  width: `${activeBatch.progress ?? 0}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                          <div className="rounded-xl bg-muted/60 px-3 py-3">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Mentor
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {activeBatch.mentor || "-"}
-                            </p>
-                          </div>
-                          <div className="rounded-xl bg-muted/60 px-3 py-3">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Deadline Submission
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {activeBatch.deadline}
-                            </p>
-                          </div>
-                          <div className="rounded-xl bg-muted/60 px-3 py-3">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Fase Journey
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {journeyFases.length} fase
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="border-t px-4 pt-3 pb-4">
-                          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                            Fase dalam journey
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {journeyFases.map((fase, index) => (
-                              <span
-                                key={fase.id}
-                                className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
-                              >
-                                <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
-                                  {index + 1}
-                                </span>
-                                {fase.nama}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="border-t px-4 py-3">
-                          <Button asChild className="w-full sm:w-auto">
-                            <Link
-                              to={`/class?track=${toTrackQuery(activeBatch.track)}&section=journey-detail&journey=${activeBatch.id}`}
-                            >
-                              {activeBatch.status === "Sedang Berjalan"
-                                ? "Lanjutkan Journey"
-                                : activeBatch.status === "Selesai"
-                                  ? "Lihat Detail Journey"
-                                  : "Mulai Journey"}
-                            </Link>
-                          </Button>
-                        </div>
-                      </div>
-
-                      {otherBatches.length > 0 ? (
-                        <div className="space-y-3">
-                          <p className="text-sm font-semibold text-muted-foreground">
-                            Kelas lainnya
-                          </p>
-                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                            {otherBatches.map((batch) => {
+                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {group.items.map((batch) => {
                               const statusLabel =
                                 batch.status ?? "Belum Dimulai"
+                              const progressValue =
+                                batch.progress ??
+                                (statusLabel === "Selesai"
+                                  ? 100
+                                  : statusLabel === "Sedang Berjalan"
+                                    ? 60
+                                    : statusLabel === "Unpassed"
+                                      ? 48
+                                      : 0)
                               const coverImage =
                                 batchCoverImages.get(batch.id) ?? courseImage
+                              const progressTone =
+                                statusLabel === "Selesai"
+                                  ? "bg-emerald-500"
+                                  : statusLabel === "Sedang Berjalan"
+                                    ? "bg-sky-500"
+                                    : statusLabel === "Unpassed"
+                                      ? "bg-slate-400"
+                                      : "bg-slate-300"
 
                               return (
                                 <article
                                   key={batch.id}
-                                  className="overflow-hidden rounded-xl border bg-card shadow-sm"
+                                  className="overflow-hidden rounded-3xl border bg-card shadow-sm"
                                 >
                                   <div
-                                    className="relative min-h-20 overflow-hidden p-3 text-white"
+                                    className="relative min-h-32 overflow-hidden p-5 text-white"
                                     style={{
-                                      backgroundImage: `linear-gradient(135deg, rgba(51,65,85,0.78), rgba(71,85,105,0.64)), url(${coverImage})`,
+                                      backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.2), rgba(15,23,42,0.58)), url(${coverImage})`,
                                       backgroundSize: "cover",
                                       backgroundPosition: "center",
                                     }}
                                   >
-                                    <div className="absolute inset-0 bg-slate-950/10" />
+                                    <div className="absolute inset-0 bg-slate-950/15" />
                                     <div className="relative">
-                                      <span
-                                        className={cn(
-                                          "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                                          statusLabel === "Selesai"
-                                            ? "bg-emerald-500/80 text-white"
-                                            : statusLabel === "Sedang Berjalan"
-                                              ? "bg-sky-500/80 text-white"
-                                              : "bg-slate-500/70 text-white"
-                                        )}
-                                      >
-                                        {statusLabel}
-                                      </span>
-                                      <p className="mt-1 text-sm font-semibold">
+                                      <p className="text-[11px] font-semibold tracking-[0.24em] text-white/95 uppercase">
+                                        {batch.track}
+                                      </p>
+                                      <h3 className="mt-2 text-2xl leading-tight font-semibold drop-shadow-sm">
                                         {batch.name}
+                                      </h3>
+                                      <p className="mt-1 text-sm font-medium text-white/95">
+                                        {batch.batch}
                                       </p>
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center justify-between gap-3 p-3">
-                                    <p className="text-xs text-muted-foreground">
-                                      {batch.period}
+                                  <div className="space-y-3 p-4">
+                                    <p className="text-sm text-muted-foreground">
+                                      {batch.audience}
                                     </p>
+
+                                    <div className="space-y-1 text-sm">
+                                      <p>
+                                        <strong>Periode:</strong> {batch.period}
+                                      </p>
+                                      <p>
+                                        <strong>Peserta:</strong> {batch.size}{" "}
+                                        orang
+                                      </p>
+                                    </div>
+
+                                    <div>
+                                      <div className="mb-1 flex items-center justify-between text-sm text-muted-foreground">
+                                        <span>Progress kelas</span>
+                                        <span>{progressValue}%</span>
+                                      </div>
+                                      <div className="h-2 rounded-full bg-slate-100">
+                                        <div
+                                          className={cn(
+                                            "h-2 rounded-full",
+                                            progressTone
+                                          )}
+                                          style={{ width: `${progressValue}%` }}
+                                        />
+                                      </div>
+                                    </div>
+
                                     <Button asChild size="sm" variant="outline">
                                       <Link
                                         to={`/class?track=${toTrackQuery(batch.track)}&section=journey-detail&journey=${batch.id}`}
                                       >
-                                        Buka
+                                        Lihat kelas
                                       </Link>
                                     </Button>
                                   </div>
@@ -7488,8 +7464,8 @@ export default function ClassBatchPage() {
                             })}
                           </div>
                         </div>
-                      ) : null}
-                    </>
+                      ))}
+                    </div>
                   ) : (
                     <div className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
                       Belum ada kelas yang tersedia untuk track{" "}

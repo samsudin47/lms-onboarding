@@ -219,6 +219,14 @@ function getNavigation(
     ...(roleKey === "participant"
       ? [
           {
+            id: "class-link",
+            title: "Class",
+            icon: ShieldCheck,
+            path: "/class",
+            track: assignedTrack ?? undefined,
+            section: "catalog",
+          },
+          {
             id: "my-class",
             title: "My Classes",
             icon: Layers3,
