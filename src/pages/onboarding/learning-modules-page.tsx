@@ -22,7 +22,13 @@ import { cn } from "@/lib/utils"
 const feature = getFeatureByPath("/modul-pembelajaran-interaktif")!
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-type ContentType = "Deskripsi" | "Pilihan Ganda" | "Essay" | "PDF" | "Video" | "Tugas"
+type ContentType =
+  | "Deskripsi"
+  | "Pilihan Ganda"
+  | "Essay"
+  | "PDF"
+  | "Video"
+  | "Tugas"
 
 type ModuleItem = {
   id: string
@@ -34,7 +40,15 @@ type ModuleItem = {
 }
 
 type CourseCategory = "Onboarding" | "LMS"
-type JabatanKey = "PKWT" | "Pro Hire" | "MT" | "Staff" | "Kaur" | "Kasek" | "Kadep" | "Kadiv"
+type JabatanKey =
+  | "PKWT"
+  | "Pro Hire"
+  | "MT"
+  | "Staff"
+  | "Kaur"
+  | "Kasek"
+  | "Kadep"
+  | "Kadiv"
 type KategoriPelatihan =
   | "SDM"
   | "IT"
@@ -58,10 +72,26 @@ type Course = {
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const ALL_JABATAN: JabatanKey[] = ["PKWT", "Pro Hire", "MT", "Staff", "Kaur", "Kasek", "Kadep", "Kadiv"]
-const ALL_KATEGORI: KategoriPelatihan[] = ["SDM", "IT", "Hukum", "Keuangan", "Operasional", "Umum", "Teknik", "Kepatuhan"]
-const contentTypes: ContentType[] = ["Deskripsi", "Pilihan Ganda", "Essay", "PDF", "Video", "Tugas"]
-
+const ALL_JABATAN: JabatanKey[] = [
+  "PKWT",
+  "Pro Hire",
+  "MT",
+  "Staff",
+  "Kaur",
+  "Kasek",
+  "Kadep",
+  "Kadiv",
+]
+const ALL_KATEGORI: KategoriPelatihan[] = [
+  "SDM",
+  "IT",
+  "Hukum",
+  "Keuangan",
+  "Operasional",
+  "Umum",
+  "Teknik",
+  "Kepatuhan",
+]
 const sectionLabels: Record<string, string> = {
   "class-setting": "Setting class / batch",
   "review-task": "Review tugas mentee",
@@ -74,18 +104,21 @@ const seedCourses: Course[] = [
   {
     id: "crs-1",
     title: "Orientasi & Budaya Kerja Peruri",
-    description: "Course pengenalan nilai, budaya kerja, dan tata tertib perusahaan untuk peserta onboarding baru.",
+    description:
+      "Course pengenalan nilai, budaya kerja, dan tata tertib perusahaan untuk peserta onboarding baru.",
     category: "Onboarding",
     jabatan: ["PKWT", "Pro Hire", "MT"],
     kategoriPelatihan: ["SDM", "Umum"],
     preTest: "Kuis 10 soal pilihan ganda — pemahaman awal budaya kerja",
-    postTest: "Essay refleksi singkat — implementasi nilai AKHLAK di tempat kerja",
+    postTest:
+      "Essay refleksi singkat — implementasi nilai AKHLAK di tempat kerja",
     published: true,
   },
   {
     id: "crs-2",
     title: "Pengenalan Tools Internal & Sistem IT",
-    description: "Pelatihan penggunaan sistem internal, aplikasi kolaborasi, dan keamanan data.",
+    description:
+      "Pelatihan penggunaan sistem internal, aplikasi kolaborasi, dan keamanan data.",
     category: "Onboarding",
     jabatan: ["PKWT", "Pro Hire", "MT", "Staff"],
     kategoriPelatihan: ["IT"],
@@ -96,7 +129,8 @@ const seedCourses: Course[] = [
   {
     id: "crs-3",
     title: "Dasar Kepatuhan & Hukum Korporat",
-    description: "Pemahaman dasar regulasi internal, etika bisnis, dan kewajiban hukum karyawan.",
+    description:
+      "Pemahaman dasar regulasi internal, etika bisnis, dan kewajiban hukum karyawan.",
     category: "LMS",
     jabatan: ["Staff", "Kaur", "Kasek", "Kadep"],
     kategoriPelatihan: ["Hukum", "Kepatuhan"],
@@ -107,7 +141,8 @@ const seedCourses: Course[] = [
   {
     id: "crs-4",
     title: "Manajemen Keuangan untuk Pimpinan",
-    description: "Pengelolaan anggaran, laporan keuangan, dan pengambilan keputusan berbasis data keuangan.",
+    description:
+      "Pengelolaan anggaran, laporan keuangan, dan pengambilan keputusan berbasis data keuangan.",
     category: "LMS",
     jabatan: ["Kadep", "Kadiv"],
     kategoriPelatihan: ["Keuangan"],
@@ -118,18 +153,80 @@ const seedCourses: Course[] = [
 ]
 
 const initialItems: ModuleItem[] = [
-  { id: "mod-1", title: "Deskripsi class & objective onboarding", type: "Deskripsi", description: "Ringkasan tujuan class, kompetensi yang dicapai, dan alur penyelesaian.", link: "", deadline: "12 Apr 2026" },
-  { id: "mod-2", title: "Video budaya kerja Peruri", type: "Video", description: "Video pengenalan budaya kerja dan nilai AKHLAK.", link: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4", deadline: "14 Apr 2026" },
-  { id: "mod-3", title: "Panduan onboarding PDF", type: "PDF", description: "Dokumen panduan onboarding perusahaan dan tata tertib kelas.", link: "https://developer.mozilla.org/en-US/docs/Learn", deadline: "14 Apr 2026" },
-  { id: "mod-4", title: "Pre-Test pemahaman awal", type: "Pilihan Ganda", description: "Kuis pilihan ganda sebelum memulai materi inti.", link: "", deadline: "15 Apr 2026" },
-  { id: "mod-5", title: "Refleksi onboarding", type: "Essay", description: "Tulis refleksi singkat tentang pemahaman Anda terhadap proses onboarding.", link: "", deadline: "16 Apr 2026" },
-  { id: "mod-6", title: "Tugas ringkasan materi", type: "Tugas", description: "Unggah ringkasan materi atau jawaban tugas ke sistem LMS.", link: "", deadline: "18 Apr 2026" },
+  {
+    id: "mod-1",
+    title: "Deskripsi class & objective onboarding",
+    type: "Deskripsi",
+    description:
+      "Ringkasan tujuan class, kompetensi yang dicapai, dan alur penyelesaian.",
+    link: "",
+    deadline: "12 Apr 2026",
+  },
+  {
+    id: "mod-2",
+    title: "Video budaya kerja Peruri",
+    type: "Video",
+    description: "Video pengenalan budaya kerja dan nilai AKHLAK.",
+    link: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+    deadline: "14 Apr 2026",
+  },
+  {
+    id: "mod-3",
+    title: "Panduan onboarding PDF",
+    type: "PDF",
+    description: "Dokumen panduan onboarding perusahaan dan tata tertib kelas.",
+    link: "https://developer.mozilla.org/en-US/docs/Learn",
+    deadline: "14 Apr 2026",
+  },
+  {
+    id: "mod-4",
+    title: "Pre-Test pemahaman awal",
+    type: "Pilihan Ganda",
+    description: "Kuis pilihan ganda sebelum memulai materi inti.",
+    link: "",
+    deadline: "15 Apr 2026",
+  },
+  {
+    id: "mod-5",
+    title: "Refleksi onboarding",
+    type: "Essay",
+    description:
+      "Tulis refleksi singkat tentang pemahaman Anda terhadap proses onboarding.",
+    link: "",
+    deadline: "16 Apr 2026",
+  },
+  {
+    id: "mod-6",
+    title: "Tugas ringkasan materi",
+    type: "Tugas",
+    description: "Unggah ringkasan materi atau jawaban tugas ke sistem LMS.",
+    link: "",
+    deadline: "18 Apr 2026",
+  },
 ]
 
 const mentorReviewQueue = [
-  { id: "review-ayu", user: "Ayu Pratama", task: "Ringkasan budaya kerja", status: "Siap direview", note: "Coaching sesi 2 selesai dan tinggal validasi mentor." },
-  { id: "review-raka", user: "Raka Saputra", task: "Resume orientation class", status: "Perlu revisi", note: "Tambahkan contoh implementasi budaya kerja pada unit." },
-  { id: "review-dina", user: "Dina Maharani", task: "Project awal onboarding", status: "Monitoring", note: "Menunggu konfirmasi akhir sebelum masuk evaluasi." },
+  {
+    id: "review-ayu",
+    user: "Ayu Pratama",
+    task: "Ringkasan budaya kerja",
+    status: "Siap direview",
+    note: "Coaching sesi 2 selesai dan tinggal validasi mentor.",
+  },
+  {
+    id: "review-raka",
+    user: "Raka Saputra",
+    task: "Resume orientation class",
+    status: "Perlu revisi",
+    note: "Tambahkan contoh implementasi budaya kerja pada unit.",
+  },
+  {
+    id: "review-dina",
+    user: "Dina Maharani",
+    task: "Project awal onboarding",
+    status: "Monitoring",
+    note: "Menunggu konfirmasi akhir sebelum masuk evaluasi.",
+  },
 ]
 
 // ─── Multi-select checkbox helper ────────────────────────────────────────────
@@ -145,7 +242,11 @@ function MultiCheckbox<T extends string>({
   onChange: (val: T[]) => void
 }) {
   function toggle(opt: T) {
-    onChange(selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt])
+    onChange(
+      selected.includes(opt)
+        ? selected.filter((s) => s !== opt)
+        : [...selected, opt]
+    )
   }
   return (
     <div>
@@ -181,20 +282,16 @@ export default function LearningModulesPage() {
   const permissions = getRolePermissions(currentUser.role)
 
   // Participant / mentor / examiner state
-  const [items, setItems] = useState<ModuleItem[]>(initialItems)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [title, setTitle] = useState("")
-  const [type, setType] = useState<ContentType>("Deskripsi")
-  const [description, setDescription] = useState("")
-  const [link, setLink] = useState("")
-  const [deadline, setDeadline] = useState("")
+  const [items] = useState<ModuleItem[]>(initialItems)
   const [taskSubmission, setTaskSubmission] = useState("")
   const [taskSubmitted, setTaskSubmitted] = useState(false)
   const [completedIds, setCompletedIds] = useState<string[]>([])
 
   // Admin course management state
   const [courses, setCourses] = useState<Course[]>(seedCourses)
-  const [categoryFilter, setCategoryFilter] = useState<CourseCategory | "All">("All")
+  const [categoryFilter, setCategoryFilter] = useState<CourseCategory | "All">(
+    "All"
+  )
   const [showForm, setShowForm] = useState(false)
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null)
   const [fTitle, setFTitle] = useState("")
@@ -208,49 +305,46 @@ export default function LearningModulesPage() {
   const selectedSection = searchParams.get("section") ?? ""
   const focusLabel = sectionLabels[selectedSection]
 
-  const totalMaterials = items.filter((i) => i.type === "PDF" || i.type === "Video").length
-  const totalAssessments = items.filter((i) => i.type === "Pilihan Ganda" || i.type === "Essay").length
+  const totalMaterials = items.filter(
+    (i) => i.type === "PDF" || i.type === "Video"
+  ).length
+  const totalAssessments = items.filter(
+    (i) => i.type === "Pilihan Ganda" || i.type === "Essay"
+  ).length
 
-  const filteredCourses = categoryFilter === "All" ? courses : courses.filter((c) => c.category === categoryFilter)
-
-  // ── Module item helpers (used by non-admin views) ─────────────────────────
-  function resetModuleForm() {
-    setEditingId(null); setTitle(""); setType("Deskripsi"); setDescription(""); setLink(""); setDeadline("")
-  }
-
-  function handleModuleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    if (!title.trim() || !description.trim()) return
-    const nextItem: ModuleItem = {
-      id: editingId ?? `item-${crypto.randomUUID().slice(0, 8)}`,
-      title: title.trim(), type, description: description.trim(), link: link.trim(), deadline: deadline || "Belum ditentukan",
-    }
-    setItems((prev) => editingId ? prev.map((i) => (i.id === editingId ? nextItem : i)) : [...prev, nextItem])
-    resetModuleForm()
-  }
-
-  function startEditModule(item: ModuleItem) {
-    setEditingId(item.id); setTitle(item.title); setType(item.type); setDescription(item.description); setLink(item.link); setDeadline(item.deadline)
-  }
-
-  function deleteItem(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id))
-    if (editingId === id) resetModuleForm()
-  }
+  const filteredCourses =
+    categoryFilter === "All"
+      ? courses
+      : courses.filter((c) => c.category === categoryFilter)
 
   function toggleComplete(id: string) {
-    setCompletedIds((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id])
+    setCompletedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
   }
 
   // ── Course helpers (admin) ─────────────────────────────────────────────────
   function openNewCourse() {
-    setEditingCourseId(null); setFTitle(""); setFDescription(""); setFCategory("Onboarding")
-    setFJabatan([]); setFKategori([]); setFPreTest(""); setFPostTest(""); setShowForm(true)
+    setEditingCourseId(null)
+    setFTitle("")
+    setFDescription("")
+    setFCategory("Onboarding")
+    setFJabatan([])
+    setFKategori([])
+    setFPreTest("")
+    setFPostTest("")
+    setShowForm(true)
   }
 
   function openEditCourse(c: Course) {
-    setEditingCourseId(c.id); setFTitle(c.title); setFDescription(c.description); setFCategory(c.category)
-    setFJabatan(c.jabatan); setFKategori(c.kategoriPelatihan); setFPreTest(c.preTest); setFPostTest(c.postTest)
+    setEditingCourseId(c.id)
+    setFTitle(c.title)
+    setFDescription(c.description)
+    setFCategory(c.category)
+    setFJabatan(c.jabatan)
+    setFKategori(c.kategoriPelatihan)
+    setFPreTest(c.preTest)
+    setFPostTest(c.postTest)
     setShowForm(true)
   }
 
@@ -258,14 +352,28 @@ export default function LearningModulesPage() {
     e.preventDefault()
     if (!fTitle.trim()) return
     const base: Omit<Course, "id" | "published"> = {
-      title: fTitle.trim(), description: fDescription.trim(), category: fCategory,
-      jabatan: fJabatan, kategoriPelatihan: fKategori, preTest: fPreTest.trim(), postTest: fPostTest.trim(),
+      title: fTitle.trim(),
+      description: fDescription.trim(),
+      category: fCategory,
+      jabatan: fJabatan,
+      kategoriPelatihan: fKategori,
+      preTest: fPreTest.trim(),
+      postTest: fPostTest.trim(),
     }
     setCourses((prev) => {
       if (editingCourseId) {
-        return prev.map((c) => c.id === editingCourseId ? { ...c, ...base } : c)
+        return prev.map((c) =>
+          c.id === editingCourseId ? { ...c, ...base } : c
+        )
       }
-      return [...prev, { id: `crs-${crypto.randomUUID().slice(0, 6)}`, published: false, ...base }]
+      return [
+        ...prev,
+        {
+          id: `crs-${crypto.randomUUID().slice(0, 6)}`,
+          published: false,
+          ...base,
+        },
+      ]
     })
     setShowForm(false)
   }
@@ -276,12 +384,14 @@ export default function LearningModulesPage() {
   }
 
   function togglePublish(id: string) {
-    setCourses((prev) => prev.map((c) => {
-      if (c.id !== id) return c
-      const canPublish = c.preTest.trim() && c.postTest.trim()
-      if (!canPublish) return c
-      return { ...c, published: !c.published }
-    }))
+    setCourses((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c
+        const canPublish = c.preTest.trim() && c.postTest.trim()
+        if (!canPublish) return c
+        return { ...c, published: !c.published }
+      })
+    )
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -290,17 +400,27 @@ export default function LearningModulesPage() {
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Materi & konten pembelajaran</h2>
+            <h2 className="text-sm font-semibold">
+              Materi & konten pembelajaran
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Tampilan halaman ini otomatis menyesuaikan hak akses login untuk Admin PSP, Mentor / Co-mentor, Penguji Internal, atau peserta onboarding.
+              Tampilan halaman ini otomatis menyesuaikan hak akses login untuk
+              Admin PSP, Mentor / Co-mentor, Penguji Internal, atau peserta
+              onboarding.
             </p>
-            {focusLabel ? <p className="mt-2 text-xs font-medium text-primary">Fokus menu: {focusLabel}</p> : null}
+            {focusLabel ? (
+              <p className="mt-2 text-xs font-medium text-primary">
+                Fokus menu: {focusLabel}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2 text-left sm:text-right">
             <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               Akses aktif: {permissions.label}
             </span>
-            <p className="max-w-xs text-xs text-muted-foreground">{permissions.description}</p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              {permissions.description}
+            </p>
           </div>
         </div>
       </section>
@@ -311,10 +431,14 @@ export default function LearningModulesPage() {
           {/* Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Kategori Course</label>
+              <label className="text-sm font-medium whitespace-nowrap text-muted-foreground">
+                Kategori Course
+              </label>
               <select
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value as CourseCategory | "All")}
+                onChange={(e) =>
+                  setCategoryFilter(e.target.value as CourseCategory | "All")
+                }
                 className="rounded-md border bg-background px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
               >
                 <option value="All">All</option>
@@ -331,7 +455,12 @@ export default function LearningModulesPage() {
             </Button>
           </div>
 
-          <div className={cn("grid gap-4", showForm ? "xl:grid-cols-[1fr_420px]" : "")}>
+          <div
+            className={cn(
+              "grid gap-4",
+              showForm ? "xl:grid-cols-[1fr_420px]" : ""
+            )}
+          >
             {/* Course list */}
             <div className="space-y-3">
               {filteredCourses.length === 0 && (
@@ -344,21 +473,37 @@ export default function LearningModulesPage() {
                 const hasPostTest = !!course.postTest.trim()
                 const canPublish = hasPreTest && hasPostTest
                 return (
-                  <div key={course.id} className="rounded-xl border bg-card p-5 shadow-sm">
+                  <div
+                    key={course.id}
+                    className="rounded-xl border bg-card p-5 shadow-sm"
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-semibold", course.category === "Onboarding" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+                              course.category === "Onboarding"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-violet-100 text-violet-700"
+                            )}
+                          >
                             {course.category}
                           </span>
                           {course.published ? (
-                            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">Published</span>
+                            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              Published
+                            </span>
                           ) : (
-                            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">Draft</span>
+                            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
+                              Draft
+                            </span>
                           )}
                         </div>
                         <h3 className="mt-2 font-semibold">{course.title}</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">{course.description}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {course.description}
+                        </p>
                       </div>
                     </div>
 
@@ -366,17 +511,31 @@ export default function LearningModulesPage() {
                     <div className="mt-3 space-y-2">
                       {course.jabatan.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[11px] font-medium text-muted-foreground">Jabatan:</span>
+                          <span className="text-[11px] font-medium text-muted-foreground">
+                            Jabatan:
+                          </span>
                           {course.jabatan.map((j) => (
-                            <span key={j} className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] text-amber-700">{j}</span>
+                            <span
+                              key={j}
+                              className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700"
+                            >
+                              {j}
+                            </span>
                           ))}
                         </div>
                       )}
                       {course.kategoriPelatihan.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[11px] font-medium text-muted-foreground">Pelatihan:</span>
+                          <span className="text-[11px] font-medium text-muted-foreground">
+                            Pelatihan:
+                          </span>
                           {course.kategoriPelatihan.map((k) => (
-                            <span key={k} className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[11px] text-teal-700">{k}</span>
+                            <span
+                              key={k}
+                              className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] text-teal-700"
+                            >
+                              {k}
+                            </span>
                           ))}
                         </div>
                       )}
@@ -390,8 +549,18 @@ export default function LearningModulesPage() {
                         ) : (
                           <XCircle className="size-3.5 text-red-400" />
                         )}
-                        <span className={hasPreTest ? "text-emerald-700" : "text-red-500"}>Pre Test</span>
-                        {hasPreTest && <span className="text-muted-foreground">— {course.preTest}</span>}
+                        <span
+                          className={
+                            hasPreTest ? "text-emerald-700" : "text-red-500"
+                          }
+                        >
+                          Pre Test
+                        </span>
+                        {hasPreTest && (
+                          <span className="text-muted-foreground">
+                            — {course.preTest}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs">
                         {hasPostTest ? (
@@ -399,14 +568,25 @@ export default function LearningModulesPage() {
                         ) : (
                           <XCircle className="size-3.5 text-red-400" />
                         )}
-                        <span className={hasPostTest ? "text-emerald-700" : "text-red-500"}>Post Test</span>
-                        {hasPostTest && <span className="text-muted-foreground">— {course.postTest}</span>}
+                        <span
+                          className={
+                            hasPostTest ? "text-emerald-700" : "text-red-500"
+                          }
+                        >
+                          Post Test
+                        </span>
+                        {hasPostTest && (
+                          <span className="text-muted-foreground">
+                            — {course.postTest}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {!canPublish && (
                       <p className="mt-2 text-[11px] text-amber-600">
-                        Pre Test dan Post Test harus diisi sebelum bisa dipublish.
+                        Pre Test dan Post Test harus diisi sebelum bisa
+                        dipublish.
                       </p>
                     )}
 
@@ -418,15 +598,27 @@ export default function LearningModulesPage() {
                         variant={course.published ? "outline" : "default"}
                         disabled={!canPublish}
                         onClick={() => togglePublish(course.id)}
-                        className={cn(!canPublish && "cursor-not-allowed opacity-50")}
+                        className={cn(
+                          !canPublish && "cursor-not-allowed opacity-50"
+                        )}
                       >
                         {course.published ? "Unpublish" : "Publish"}
                       </Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => openEditCourse(course)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditCourse(course)}
+                      >
                         <PencilLine className="size-3.5" />
                         Edit
                       </Button>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => deleteCourse(course.id)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteCourse(course.id)}
+                      >
                         <Trash2 className="size-3.5" />
                         Hapus
                       </Button>
@@ -438,23 +630,39 @@ export default function LearningModulesPage() {
 
             {/* Course form panel */}
             {showForm && (
-              <form onSubmit={handleCourseSave} className="rounded-xl border bg-card p-5 shadow-sm self-start space-y-4">
+              <form
+                onSubmit={handleCourseSave}
+                className="space-y-4 self-start rounded-xl border bg-card p-5 shadow-sm"
+              >
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold">
                     {editingCourseId ? "Edit Course" : "Buat Course Baru"}
                   </h2>
-                  <button type="button" onClick={() => setShowForm(false)} className="text-xs text-muted-foreground hover:text-foreground">
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
                     Tutup
                   </button>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Judul Course</label>
-                  <Input value={fTitle} onChange={(e) => setFTitle(e.target.value)} placeholder="Contoh: Orientasi Budaya Kerja" required />
+                  <label className="mb-1 block text-sm font-medium">
+                    Judul Course
+                  </label>
+                  <Input
+                    value={fTitle}
+                    onChange={(e) => setFTitle(e.target.value)}
+                    placeholder="Contoh: Orientasi Budaya Kerja"
+                    required
+                  />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Deskripsi</label>
+                  <label className="mb-1 block text-sm font-medium">
+                    Deskripsi
+                  </label>
                   <textarea
                     value={fDescription}
                     onChange={(e) => setFDescription(e.target.value)}
@@ -464,10 +672,14 @@ export default function LearningModulesPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Kategori Course</label>
+                  <label className="mb-1 block text-sm font-medium">
+                    Kategori Course
+                  </label>
                   <select
                     value={fCategory}
-                    onChange={(e) => setFCategory(e.target.value as CourseCategory)}
+                    onChange={(e) =>
+                      setFCategory(e.target.value as CourseCategory)
+                    }
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                   >
                     <option value="Onboarding">Onboarding</option>
@@ -521,7 +733,11 @@ export default function LearningModulesPage() {
                   <Button type="submit" className="flex-1">
                     {editingCourseId ? "Simpan Perubahan" : "Buat Course"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowForm(false)}
+                  >
                     Batal
                   </Button>
                 </div>
@@ -539,18 +755,29 @@ export default function LearningModulesPage() {
             </div>
             <div className="mt-4 space-y-3">
               {mentorReviewQueue.map((item) => (
-                <div key={item.id} className="rounded-lg border bg-background p-4">
+                <div
+                  key={item.id}
+                  className="rounded-lg border bg-background p-4"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="font-medium">{item.user}</p>
-                      <p className="text-sm text-muted-foreground">{item.task}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.task}
+                      </p>
                     </div>
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{item.status}</span>
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                      {item.status}
+                    </span>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{item.note}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {item.note}
+                  </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/journey-onboarding?section=coaching">Lihat coaching</Link>
+                      <Link to="/journey-onboarding?section=coaching">
+                        Lihat coaching
+                      </Link>
                     </Button>
                     <Button asChild size="sm" variant="ghost">
                       <Link to="/evaluasi-feedback">Buka hasil evaluasi</Link>
@@ -577,10 +804,14 @@ export default function LearningModulesPage() {
               </div>
               <div className="mt-4 flex flex-col gap-2">
                 <Button asChild variant="outline">
-                  <Link to="/journey-onboarding?section=progress">Pantau progress mentee</Link>
+                  <Link to="/journey-onboarding?section=progress">
+                    Pantau progress mentee
+                  </Link>
                 </Button>
                 <Button asChild variant="ghost">
-                  <Link to="/evaluasi-feedback?section=score-input">Cek kesiapan penilaian</Link>
+                  <Link to="/evaluasi-feedback?section=score-input">
+                    Cek kesiapan penilaian
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -593,13 +824,20 @@ export default function LearningModulesPage() {
             <h2 className="text-sm font-semibold">Materi acuan penguji</h2>
             <div className="mt-4 space-y-3">
               {items.map((item) => (
-                <div key={item.id} className="rounded-lg border bg-background p-4">
+                <div
+                  key={item.id}
+                  className="rounded-lg border bg-background p-4"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium">{item.title}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {item.description}
+                      </p>
                     </div>
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{item.type}</span>
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                      {item.type}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -616,7 +854,9 @@ export default function LearningModulesPage() {
               </ul>
             </div>
             <Button asChild className="w-full">
-              <Link to="/evaluasi-feedback?section=score-input">Lanjut input nilai</Link>
+              <Link to="/evaluasi-feedback?section=score-input">
+                Lanjut input nilai
+              </Link>
             </Button>
           </div>
         </section>
@@ -627,25 +867,42 @@ export default function LearningModulesPage() {
             <h2 className="text-sm font-semibold">Akses konten pembelajaran</h2>
             <div className="mt-4 space-y-3">
               {items.map((item) => (
-                <div key={item.id} className="rounded-lg border bg-background p-4">
+                <div
+                  key={item.id}
+                  className="rounded-lg border bg-background p-4"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium">{item.title}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {item.description}
+                      </p>
                     </div>
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{item.type}</span>
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                      {item.type}
+                    </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {item.link ? (
                       <Button asChild size="sm" variant="outline">
                         <a href={item.link} target="_blank" rel="noreferrer">
-                          {item.type === "Video" ? <PlayCircle className="size-4" /> : <LinkIcon className="size-4" />}
+                          {item.type === "Video" ? (
+                            <PlayCircle className="size-4" />
+                          ) : (
+                            <LinkIcon className="size-4" />
+                          )}
                           Buka materi
                         </a>
                       </Button>
                     ) : null}
-                    <Button type="button" size="sm" onClick={() => toggleComplete(item.id)}>
-                      {completedIds.includes(item.id) ? "Sudah selesai" : "Tandai selesai"}
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => toggleComplete(item.id)}
+                    >
+                      {completedIds.includes(item.id)
+                        ? "Sudah selesai"
+                        : "Tandai selesai"}
                     </Button>
                   </div>
                 </div>
@@ -660,7 +917,8 @@ export default function LearningModulesPage() {
                 <h2 className="text-sm font-semibold">Pengumpulan tugas</h2>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Upload materi tugas, jawaban, atau catatan pembelajaran dari user onboarding.
+                Upload materi tugas, jawaban, atau catatan pembelajaran dari
+                user onboarding.
               </p>
               <textarea
                 value={taskSubmission}
@@ -676,7 +934,11 @@ export default function LearningModulesPage() {
               >
                 Kumpulkan tugas
               </Button>
-              {taskSubmitted ? <p className="mt-2 text-sm text-primary">Tugas berhasil dikirim (demo).</p> : null}
+              {taskSubmitted ? (
+                <p className="mt-2 text-sm text-primary">
+                  Tugas berhasil dikirim (demo).
+                </p>
+              ) : null}
             </div>
 
             <div className="rounded-xl border bg-card p-5 shadow-sm">
@@ -685,12 +947,16 @@ export default function LearningModulesPage() {
                 <h2 className="text-sm font-semibold">Progress belajar</h2>
               </div>
               <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                <li>• Materi selesai: {completedIds.length}/{items.length}</li>
+                <li>
+                  • Materi selesai: {completedIds.length}/{items.length}
+                </li>
                 <li>• Tugas terkirim: {taskSubmitted ? "Ya" : "Belum"}</li>
                 <li>• Langkah berikutnya: lanjut ke evaluasi dan test</li>
               </ul>
               <Button asChild variant="outline" className="mt-4 w-full">
-                <Link to="/evaluasi-feedback">Lanjut ke Pre-Test / Post-Test</Link>
+                <Link to="/evaluasi-feedback">
+                  Lanjut ke Pre-Test / Post-Test
+                </Link>
               </Button>
             </div>
           </div>

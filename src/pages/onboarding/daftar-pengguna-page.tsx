@@ -432,7 +432,7 @@ export default function DaftarPenggunaPage() {
             }}
             className="rounded-md border bg-background px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
           >
-            {roleCounts.map(({ role, count }) => (
+            {roleCounts.map(({ role }) => (
               <option key={role} value={role}>
                 {role}
               </option>
