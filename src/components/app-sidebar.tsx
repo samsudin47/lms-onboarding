@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
+import iconChild from "@/assets/icon-child.jpeg"
 import iconPeruri from "@/assets/icon-peruri.png"
 import {
   getDemoUserTrack,
@@ -33,6 +34,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 type NavigationNode = {
@@ -209,6 +211,22 @@ function getNavigation(
     ? myClassChildren.filter((item) => item.track === assignedTrack)
     : myClassChildren
 
+  const participantMyClassItem: NavigationNode = assignedTrack
+    ? {
+        id: "my-class",
+        title: "My Classes",
+        icon: Layers3,
+        path: "/class",
+        track: assignedTrack,
+        section: "overview",
+      }
+    : {
+        id: "my-class",
+        title: "My Classes",
+        icon: Layers3,
+        children: participantChildren,
+      }
+
   const items: NavigationNode[] = [
     {
       id: "dashboard",
@@ -216,24 +234,7 @@ function getNavigation(
       icon: LayoutDashboard,
       path: "/dashboard",
     },
-    ...(roleKey === "participant"
-      ? [
-          {
-            id: "class-link",
-            title: "Class",
-            icon: ShieldCheck,
-            path: "/class",
-            track: assignedTrack ?? undefined,
-            section: "catalog",
-          },
-          {
-            id: "my-class",
-            title: "My Classes",
-            icon: Layers3,
-            children: participantChildren,
-          },
-        ]
-      : []),
+    ...(roleKey === "participant" ? [participantMyClassItem] : []),
   ]
 
   if (roleKey === "participant") {
@@ -326,6 +327,8 @@ function getNavigation(
 
 export function AppSidebar() {
   const { pathname, search } = useLocation()
+  const { state, isMobile } = useSidebar()
+  const showFullPeruriLogo = isMobile || state === "expanded"
   const currentUser = getStoredDemoUser()
   const roleKey = getRoleKey(currentUser.role)
   const navigationItems = getNavigation(roleKey, currentUser)
@@ -414,12 +417,42 @@ export function AppSidebar() {
       collapsible="icon"
       className="[&_[data-sidebar=sidebar]]:border-sky-200/20 [&_[data-sidebar=sidebar]]:bg-linear-to-b [&_[data-sidebar=sidebar]]:from-blue-900 [&_[data-sidebar=sidebar]]:via-blue-800 [&_[data-sidebar=sidebar]]:to-indigo-900 [&_[data-sidebar=sidebar]]:text-slate-50 [&_[data-sidebar=sidebar]]:shadow-[0_20px_60px_rgba(37,99,235,0.28)]"
     >
-      <SidebarHeader className="p-3">
-        <div className="overflow-hidden rounded-2xl border border-white/10 shadow-sm group-data-[collapsible=icon]:rounded-xl">
+      <SidebarHeader
+        className={cn(
+          "transition-[padding] duration-300 ease-out",
+          showFullPeruriLogo ? "p-3" : "flex justify-center px-1.5 pt-2 pb-2"
+        )}
+      >
+        <div
+          className={cn(
+            "relative overflow-hidden border border-white/10 bg-white shadow-sm ring-1 ring-black/5",
+            "transition-[width,height,border-radius,box-shadow] duration-300 ease-out",
+            showFullPeruriLogo
+              ? "h-24 w-full max-w-full rounded-2xl"
+              : "h-8 w-8 max-w-8 shrink-0 rounded-xl"
+          )}
+          title="Peruri"
+        >
           <img
             src={iconPeruri}
+            alt=""
+            aria-hidden
+            className={cn(
+              "absolute inset-0 size-full object-cover object-center transition-opacity duration-300 ease-out",
+              showFullPeruriLogo
+                ? "opacity-100"
+                : "pointer-events-none opacity-0"
+            )}
+          />
+          <img
+            src={iconChild}
             alt="Peruri"
-            className="block h-24 w-full object-cover group-data-[collapsible=icon]:h-10"
+            className={cn(
+              "absolute inset-0 box-border size-full object-contain p-1 transition-opacity duration-300 ease-out",
+              showFullPeruriLogo
+                ? "pointer-events-none opacity-0"
+                : "opacity-100"
+            )}
           />
         </div>
       </SidebarHeader>

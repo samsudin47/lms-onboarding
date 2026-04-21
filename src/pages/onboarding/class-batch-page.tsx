@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  CircleX,
   ClipboardCheck,
   ImagePlus,
   PencilLine,
@@ -175,6 +176,41 @@ type JFase = {
   deadline: string
   materi: JMateri[]
   evaluasiLabel?: string // MT only: evaluasi per fase
+}
+
+/** Pre/post test per materi: dibatasi untuk peserta onboarding agar demo presentasi singkat (1–2 soal). */
+const ONBOARDING_PARTICIPANT_QUIZ_CAP = 2
+
+function shuffleJourneyQuiz(
+  qs: JQuizQuestion[],
+  seed: string
+): JQuizQuestion[] {
+  const arr = [...qs]
+  let h = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
+  for (let i = arr.length - 1; i > 0; i--) {
+    h = (h * 1664525 + 1013904223) >>> 0
+    const j = h % (i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+type PostQuizAttemptRecord = {
+  at: string
+  score: number
+  total: number
+  percent: number
+}
+
+function formatQuizAttemptDate(iso: string) {
+  try {
+    return new Intl.DateTimeFormat("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(iso))
+  } catch {
+    return iso
+  }
 }
 
 const JOURNEY_FASES_BY_TRACK: Record<ClassTrack, JFase[]> = {
@@ -2835,10 +2871,8 @@ export default function ClassBatchPage() {
   const requestedSection = searchParams.get("section")
   const activeSection =
     permissions.key === "participant"
-      ? requestedSection === "catalog" ||
-        requestedSection === "catalog-detail" ||
-        requestedSection === "other-training" ||
-        requestedSection === "journey-detail"
+      ? requestedSection === "journey-detail" ||
+        requestedSection === "quiz-summary"
         ? requestedSection
         : "overview"
       : (requestedSection ?? "overview")
@@ -2869,13 +2903,9 @@ export default function ClassBatchPage() {
       hasChanges = true
     }
 
+    const s = nextParams.get("section")
     const allowedSection =
-      nextParams.get("section") === "catalog" ||
-      nextParams.get("section") === "catalog-detail" ||
-      nextParams.get("section") === "other-training" ||
-      nextParams.get("section") === "journey-detail"
-        ? nextParams.get("section")!
-        : "overview"
+      s === "journey-detail" || s === "quiz-summary" ? s : "overview"
 
     if (nextParams.get("section") !== allowedSection) {
       nextParams.set("section", allowedSection)
@@ -2968,12 +2998,45 @@ export default function ClassBatchPage() {
   const [activeMateriView, setActiveMateriView] = useState<
     "pre-test" | "content" | "post-test"
   >("pre-test")
+  const journeyDeepLinkAppliedKey = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (activeSection !== "journey-detail") {
+      journeyDeepLinkAppliedKey.current = null
+      return
+    }
+    const fp = searchParams.get("fase")
+    const mp = searchParams.get("materi")
+    const vp = searchParams.get("mview")
+    if (!fp || !mp) return
+
+    const key = `${fp}|${mp}|${vp ?? ""}`
+    if (journeyDeepLinkAppliedKey.current === key) return
+    journeyDeepLinkAppliedKey.current = key
+
+    setActiveFaseId(fp)
+    setActiveMateriId(mp)
+    if (vp === "content" || vp === "pre-test" || vp === "post-test") {
+      setActiveMateriView(vp)
+    }
+
+    const next = new URLSearchParams(searchParams)
+    next.delete("fase")
+    next.delete("materi")
+    next.delete("mview")
+    setSearchParams(next, { replace: true })
+  }, [activeSection, searchParams, setSearchParams])
+
   // quizAnswers keyed as `${batchId}__${materiId}__${type}__${questionId}`
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({})
   // submitted flag keyed as `${batchId}__${materiId}__pre` or `__post`
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>(
     {}
   )
+  /** Riwayat post test sebelum klik Ulangi; key = `${batchId}__${materiId}__post` */
+  const [postQuizHistory, setPostQuizHistory] = useState<
+    Record<string, PostQuizAttemptRecord[]>
+  >({})
   // content viewed flag keyed as `${batchId}__${materiId}__content`
   const [contentViewed, setContentViewed] = useState<Record<string, boolean>>(
     {}
@@ -5343,6 +5406,7 @@ export default function ClassBatchPage() {
 
   const isCatalogPage = activeSection === "catalog"
   const isCatalogDetailPage = activeSection === "catalog-detail"
+  const isQuizSummaryPage = activeSection === "quiz-summary"
   const isJourneyDetailPage = activeSection === "journey-detail"
   const isOtherTrainingPage = activeSection === "other-training"
   const isOverviewPage = activeSection === "overview"
@@ -5841,6 +5905,301 @@ export default function ClassBatchPage() {
             })}
           </div>
         </section>
+      ) : isQuizSummaryPage ? (
+        <section className="space-y-5">
+          {(() => {
+            const qJourney = searchParams.get("journey") ?? ""
+            const qFase = searchParams.get("fase") ?? ""
+            const qMateri = searchParams.get("materi") ?? ""
+            const qQuizRaw = searchParams.get("quiz") ?? ""
+            const qType: "pre" | "post" | null =
+              qQuizRaw === "pre" || qQuizRaw === "post" ? qQuizRaw : null
+            const summaryBatch = batches.find((b) => b.id === qJourney)
+            const jTrackSum = summaryBatch?.track
+            const journeyFasesSum = jTrackSum
+              ? (JOURNEY_FASES_BY_TRACK[jTrackSum] ?? [])
+              : []
+            const curFaseSum = journeyFasesSum.find((f) => f.id === qFase)
+            const curMateriSum =
+              curFaseSum?.materi.find((m) => m.id === qMateri) ?? null
+            const trimQsSum = (qs: JQuizQuestion[]) => {
+              if (
+                permissions.key !== "participant" ||
+                !assignedTrackQuery ||
+                qs.length <= ONBOARDING_PARTICIPANT_QUIZ_CAP
+              ) {
+                return qs
+              }
+              return qs.slice(0, ONBOARDING_PARTICIPANT_QUIZ_CAP)
+            }
+            const quizSourceSum = curMateriSum
+              ? curMateriSum.preTest.length > 0
+                ? curMateriSum.preTest
+                : curMateriSum.postTest
+              : []
+            const qsSum =
+              summaryBatch && curMateriSum
+                ? trimQsSum(
+                    shuffleJourneyQuiz(
+                      quizSourceSum,
+                      `${summaryBatch.id}${curMateriSum.id}quiz`
+                    )
+                  )
+                : []
+            const aqKeySum = (type: "pre" | "post", qid: string) =>
+              `${summaryBatch?.id ?? ""}__${qMateri}__${type}__${qid}`
+            const scoreSum =
+              summaryBatch && curMateriSum && qType
+                ? qsSum.filter(
+                    (q) => quizAnswers[aqKeySum(qType, q.id)] === q.correct
+                  ).length
+                : 0
+            const totalSum = qsSum.length
+            const percentSum =
+              totalSum > 0 ? Math.round((scoreSum / totalSum) * 100) : 0
+            const passSum =
+              totalSum > 0 && scoreSum >= Math.ceil(totalSum * 0.7)
+            const canRetakeSum = jTrackSum !== "MT/Organik" && qType === "post"
+
+            if (
+              !summaryBatch ||
+              !curMateriSum ||
+              !qType ||
+              !qFase ||
+              !qMateri
+            ) {
+              return (
+                <div className="rounded-xl border border-dashed bg-card p-8 text-center shadow-sm">
+                  <p className="font-medium text-foreground">
+                    Ringkasan tes tidak tersedia.
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Parameter journey atau materi tidak lengkap.
+                  </p>
+                  <Button asChild className="mt-4" variant="outline">
+                    <Link
+                      to={`/class?track=${toTrackQuery(activeTrack)}&section=overview`}
+                    >
+                      Kembali ke class
+                    </Link>
+                  </Button>
+                </div>
+              )
+            }
+
+            const batchIdSum = summaryBatch.id
+            const postKeySum = `${batchIdSum}__${qMateri}__post`
+
+            return (
+              <>
+                <div className="rounded-xl border bg-card p-5 shadow-sm">
+                  <p className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
+                    Hasil tes
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold">
+                    {qType === "pre" ? "Pre Test" : "Post Test"} —{" "}
+                    {curMateriSum.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Ringkasan jawaban Anda untuk presentasi dan arsip progres.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border bg-card p-8 shadow-sm">
+                  <div
+                    className={cn(
+                      "mb-6 flex flex-col gap-2 rounded-xl border px-5 py-4 sm:flex-row sm:items-center sm:justify-between",
+                      passSum
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-amber-200 bg-amber-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      {passSum ? (
+                        <Check className="size-6 shrink-0 text-emerald-600" />
+                      ) : (
+                        <CircleX className="size-6 shrink-0 text-amber-700" />
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          Jawaban benar: {scoreSum} dari {totalSum} soal
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Nilai: <strong>{percentSum}%</strong>
+                          {totalSum > 0
+                            ? ` (${scoreSum}/${totalSum} benar)`
+                            : null}
+                        </p>
+                      </div>
+                    </div>
+                    <p
+                      className={cn(
+                        "shrink-0 text-sm font-semibold",
+                        passSum ? "text-emerald-800" : "text-amber-800"
+                      )}
+                    >
+                      {passSum ? "Lulus" : "Tidak lulus"}
+                    </p>
+                  </div>
+
+                  {qType === "post" &&
+                  (postQuizHistory[postKeySum]?.length ?? 0) > 0 ? (
+                    <div className="mb-6 rounded-xl border bg-muted/30 px-4 py-4">
+                      <p className="text-sm font-semibold text-foreground">
+                        Riwayat percobaan sebelumnya
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Tercatat setiap kali Anda mengulang post test (tanggal &
+                        waktu perangkat).
+                      </p>
+                      <ul className="mt-3 divide-y divide-border rounded-lg border bg-background">
+                        {[...(postQuizHistory[postKeySum] ?? [])]
+                          .reverse()
+                          .map((row, idx) => {
+                            const rowPass =
+                              row.total > 0 &&
+                              row.score >= Math.ceil(row.total * 0.7)
+                            return (
+                              <li
+                                key={`${row.at}-${idx}`}
+                                className="flex flex-col gap-1 px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                              >
+                                <span className="text-muted-foreground">
+                                  {formatQuizAttemptDate(row.at)}
+                                </span>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-end">
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {row.score}/{row.total} benar —{" "}
+                                    {row.percent}%
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-2 py-0.5 text-xs font-semibold",
+                                      rowPass
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : "bg-amber-100 text-amber-900"
+                                    )}
+                                  >
+                                    {rowPass ? "Lulus" : "Tidak lulus"}
+                                  </span>
+                                </div>
+                              </li>
+                            )
+                          })}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    {qType === "pre" ? (
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const next = new URLSearchParams()
+                          next.set("track", toTrackQuery(summaryBatch.track))
+                          next.set("section", "journey-detail")
+                          next.set("journey", summaryBatch.id)
+                          next.set("fase", qFase)
+                          next.set("materi", qMateri)
+                          next.set("mview", "content")
+                          setSearchParams(next, { replace: true })
+                        }}
+                      >
+                        Lanjut ke Materi
+                      </Button>
+                    ) : (
+                      <>
+                        {passSum ? (
+                          <Button
+                            type="button"
+                            className="gap-2"
+                            onClick={() => {
+                              setActiveMateriId(null)
+                              setActiveFaseId(null)
+                              const next = new URLSearchParams()
+                              next.set(
+                                "track",
+                                toTrackQuery(summaryBatch.track)
+                              )
+                              next.set("section", "journey-detail")
+                              next.set("journey", summaryBatch.id)
+                              setSearchParams(next, { replace: true })
+                            }}
+                          >
+                            Lanjut ke proses selanjutnya
+                            <ArrowRight className="size-4" />
+                          </Button>
+                        ) : null}
+                        {canRetakeSum ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              const record: PostQuizAttemptRecord = {
+                                at: new Date().toISOString(),
+                                score: scoreSum,
+                                total: totalSum,
+                                percent: percentSum,
+                              }
+                              setPostQuizHistory((prev) => ({
+                                ...prev,
+                                [postKeySum]: [
+                                  ...(prev[postKeySum] ?? []),
+                                  record,
+                                ],
+                              }))
+                              setQuizSubmitted((prev) => ({
+                                ...prev,
+                                [postKeySum]: false,
+                              }))
+                              setQuizAnswers((prev) => {
+                                const next = { ...prev }
+                                for (const q of qsSum) {
+                                  delete next[
+                                    `${batchIdSum}__${qMateri}__post__${q.id}`
+                                  ]
+                                }
+                                return next
+                              })
+                              const next = new URLSearchParams()
+                              next.set(
+                                "track",
+                                toTrackQuery(summaryBatch.track)
+                              )
+                              next.set("section", "journey-detail")
+                              next.set("journey", summaryBatch.id)
+                              next.set("fase", qFase)
+                              next.set("materi", qMateri)
+                              next.set("mview", "post-test")
+                              setSearchParams(next, { replace: true })
+                            }}
+                          >
+                            Ulangi Test
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setActiveMateriId(null)
+                            setActiveFaseId(null)
+                            const next = new URLSearchParams()
+                            next.set("track", toTrackQuery(summaryBatch.track))
+                            next.set("section", "journey-detail")
+                            next.set("journey", summaryBatch.id)
+                            setSearchParams(next, { replace: true })
+                          }}
+                        >
+                          Kembali ke Daftar Fase
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )
+          })()}
+        </section>
       ) : isJourneyDetailPage ? (
         <section className="space-y-5">
           {/* Back / breadcrumb */}
@@ -5914,36 +6273,32 @@ export default function ClassBatchPage() {
               const curMateri =
                 curFase?.materi.find((m) => m.id === activeMateriId) ?? null
 
-              // Stable shuffle: deterministic per (batchId + materiId)
-              const shuffle = (
-                qs: JQuizQuestion[],
-                seed: string
-              ): JQuizQuestion[] => {
-                const arr = [...qs]
-                let h = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
-                for (let i = arr.length - 1; i > 0; i--) {
-                  h = (h * 1664525 + 1013904223) >>> 0
-                  const j = h % (i + 1)
-                  ;[arr[i], arr[j]] = [arr[j], arr[i]]
+              const trimQsForOnboardingParticipant = (qs: JQuizQuestion[]) => {
+                if (
+                  permissions.key !== "participant" ||
+                  !assignedTrackQuery ||
+                  qs.length <= ONBOARDING_PARTICIPANT_QUIZ_CAP
+                ) {
+                  return qs
                 }
-                return arr
+                return qs.slice(0, ONBOARDING_PARTICIPANT_QUIZ_CAP)
               }
 
+              // Pre & post memakai bank soal yang sama (urutan konsisten); ulang hanya untuk post test.
+              const quizSource = curMateri
+                ? curMateri.preTest.length > 0
+                  ? curMateri.preTest
+                  : curMateri.postTest
+                : []
               const preQs = curMateri
-                ? shuffle(curMateri.preTest, `${batchId}${curMateri.id}pre`)
+                ? trimQsForOnboardingParticipant(
+                    shuffleJourneyQuiz(
+                      quizSource,
+                      `${batchId}${curMateri.id}quiz`
+                    )
+                  )
                 : []
-              const postQs = curMateri
-                ? shuffle(curMateri.postTest, `${batchId}${curMateri.id}post`)
-                : []
-
-              const calcScore = (
-                qs: JQuizQuestion[],
-                type: "pre" | "post",
-                mid: string
-              ) =>
-                qs.filter(
-                  (q) => quizAnswers[aqKey(mid, type, q.id)] === q.correct
-                ).length
+              const postQs = preQs
 
               const participants = buildBatchMentees(jBatch)
 
@@ -5951,27 +6306,12 @@ export default function ClassBatchPage() {
                 qs: JQuizQuestion[],
                 type: "pre" | "post",
                 mid: string,
-                submitted: boolean
+                submitted: boolean,
+                faseId: string
               ) => {
-                const score = calcScore(qs, type, mid)
+                const allowRetake = type === "post" && canRetake
                 return (
                   <div className="space-y-4">
-                    {submitted && (
-                      <div
-                        className={cn(
-                          "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium",
-                          score >= Math.ceil(qs.length * 0.7)
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : "border-amber-200 bg-amber-50 text-amber-700"
-                        )}
-                      >
-                        <Check className="size-4 shrink-0" />
-                        Skor: {score}/{qs.length} —{" "}
-                        {score >= Math.ceil(qs.length * 0.7)
-                          ? "Lulus"
-                          : "Perlu Peningkatan"}
-                      </div>
-                    )}
                     <ol className="space-y-4">
                       {qs.map((q, qi) => {
                         const chosen = quizAnswers[aqKey(mid, type, q.id)]
@@ -5983,22 +6323,18 @@ export default function ClassBatchPage() {
                             <div className="space-y-1.5">
                               {q.options.map((opt) => {
                                 const isChosen = chosen === opt.id
-                                const isCorrect =
-                                  submitted && opt.id === q.correct
-                                const isWrong =
-                                  submitted && isChosen && opt.id !== q.correct
                                 return (
                                   <label
                                     key={opt.id}
                                     className={cn(
                                       "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm transition",
-                                      isCorrect
-                                        ? "border-emerald-300 bg-emerald-50"
-                                        : isWrong
-                                          ? "border-rose-300 bg-rose-50"
-                                          : isChosen
-                                            ? "border-blue-300 bg-blue-50"
-                                            : "border-border hover:border-blue-200 hover:bg-blue-50/30",
+                                      submitted
+                                        ? isChosen
+                                          ? "cursor-default border-primary/40 bg-primary/10"
+                                          : "cursor-default border-border opacity-55"
+                                        : isChosen
+                                          ? "border-blue-300 bg-blue-50"
+                                          : "border-border hover:border-blue-200 hover:bg-blue-50/30",
                                       submitted && "cursor-default"
                                     )}
                                   >
@@ -6007,10 +6343,10 @@ export default function ClassBatchPage() {
                                       name={`${type}-${mid}-${q.id}`}
                                       value={opt.id}
                                       checked={isChosen}
-                                      disabled={submitted && !canRetake}
+                                      disabled={submitted && !allowRetake}
                                       className="mt-0.5 shrink-0 accent-blue-600"
                                       onChange={() => {
-                                        if (submitted && !canRetake) return
+                                        if (submitted && !allowRetake) return
                                         setQuizAnswers((prev) => ({
                                           ...prev,
                                           [aqKey(mid, type, q.id)]: opt.id,
@@ -6031,35 +6367,67 @@ export default function ClassBatchPage() {
                         <Button
                           type="button"
                           size="sm"
-                          disabled={qs.some(
-                            (q) => !quizAnswers[aqKey(mid, type, q.id)]
-                          )}
-                          onClick={() =>
+                          disabled={
+                            !faseId ||
+                            qs.some((q) => !quizAnswers[aqKey(mid, type, q.id)])
+                          }
+                          onClick={() => {
+                            if (!faseId) return
+                            const pk =
+                              type === "pre" ? preKey(mid) : postKey(mid)
                             setQuizSubmitted((prev) => ({
                               ...prev,
-                              [type === "pre" ? preKey(mid) : postKey(mid)]:
-                                true,
+                              [pk]: true,
                             }))
-                          }
+                            const next = new URLSearchParams(searchParams)
+                            next.set("track", toTrackQuery(jTrack))
+                            next.set("section", "quiz-summary")
+                            next.set("journey", jBatch.id)
+                            next.set("fase", faseId)
+                            next.set("materi", mid)
+                            next.set("quiz", type)
+                            setSearchParams(next, { replace: true })
+                          }}
                         >
                           Kumpulkan Jawaban
                         </Button>
-                      ) : canRetake ? (
+                      ) : allowRetake ? (
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            // Clear answers + submitted flag for this test
+                            const pk = postKey(mid)
+                            const prevScore = qs.filter(
+                              (q) =>
+                                quizAnswers[aqKey(mid, "post", q.id)] ===
+                                q.correct
+                            ).length
+                            const prevTotal = qs.length
+                            const prevPercent =
+                              prevTotal > 0
+                                ? Math.round((prevScore / prevTotal) * 100)
+                                : 0
+                            setPostQuizHistory((prev) => ({
+                              ...prev,
+                              [pk]: [
+                                ...(prev[pk] ?? []),
+                                {
+                                  at: new Date().toISOString(),
+                                  score: prevScore,
+                                  total: prevTotal,
+                                  percent: prevPercent,
+                                },
+                              ],
+                            }))
                             setQuizSubmitted((prev) => ({
                               ...prev,
-                              [type === "pre" ? preKey(mid) : postKey(mid)]:
-                                false,
+                              [pk]: false,
                             }))
                             setQuizAnswers((prev) => {
                               const next = { ...prev }
                               for (const q of qs)
-                                delete next[aqKey(mid, type, q.id)]
+                                delete next[aqKey(mid, "post", q.id)]
                               return next
                             })
                           }}
@@ -6458,10 +6826,8 @@ export default function ClassBatchPage() {
                                       Pre Test — {curMateri.title}
                                     </h4>
                                     <p className="text-xs text-muted-foreground">
-                                      Kerjakan sebelum membuka materi.{" "}
-                                      {canRetake
-                                        ? "Dapat diulang."
-                                        : "Tidak dapat diulang."}
+                                      Kerjakan sebelum membuka materi. Soal sama
+                                      dengan post test; tidak dapat diulang.
                                     </p>
                                   </div>
                                   <span className="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
@@ -6472,7 +6838,8 @@ export default function ClassBatchPage() {
                                   preQs,
                                   "pre",
                                   curMateri.id,
-                                  isPreDone(curMateri.id)
+                                  isPreDone(curMateri.id),
+                                  curFase?.id ?? ""
                                 )}
                               </>
                             ) : activeMateriView === "content" ? (
@@ -6544,7 +6911,8 @@ export default function ClassBatchPage() {
                                   postQs,
                                   "post",
                                   curMateri.id,
-                                  isPostDone(curMateri.id)
+                                  isPostDone(curMateri.id),
+                                  curFase?.id ?? ""
                                 )}
                               </>
                             )}

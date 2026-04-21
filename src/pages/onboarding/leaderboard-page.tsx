@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { Search } from "lucide-react"
+import { ONBOARDING_KELAS_OPTIONS } from "@/lib/onboarding-kelas-filter"
 import { cn } from "@/lib/utils"
 
 type Tab = "onboarding" | "user"
@@ -18,13 +19,6 @@ interface LeaderEntry {
   // days from enroll to last post-test submit (lower = faster)
   submitDurasiHari: number
 }
-
-// Seed classes for filter
-const KELAS_OPTIONS = [
-  "Onboarding PKWT Batch 1",
-  "Onboarding MT/Organik Batch 2",
-  "Onboarding Pro Hire Batch 1",
-]
 
 const ONBOARDING_DATA: LeaderEntry[] = [
   {
@@ -312,7 +306,7 @@ export default function LeaderboardPage() {
               className="rounded border border-border bg-background px-2 py-1 text-sm text-foreground focus:ring-2 focus:ring-primary/30 focus:outline-none"
             >
               <option value="all">Semua Kelas</option>
-              {KELAS_OPTIONS.map((k) => (
+              {ONBOARDING_KELAS_OPTIONS.map((k) => (
                 <option key={k} value={k}>
                   {k}
                 </option>

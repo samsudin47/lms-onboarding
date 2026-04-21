@@ -1,7 +1,9 @@
+import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   AlertTriangle,
   ArrowRight,
+  Bell,
   BellRing,
   BookOpen,
   CheckCircle2,
@@ -13,11 +15,13 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import {
   getDemoUserTrack,
   getRolePermissions,
   getStoredDemoUser,
 } from "@/lib/demo-access"
+import { ONBOARDING_KELAS_OPTIONS } from "@/lib/onboarding-kelas-filter"
 
 const adminStats = [
   {
@@ -60,9 +64,10 @@ const rankColors = [
   { bg: "bg-orange-300", text: "text-orange-900", label: "text-orange-700" }, // 3
 ]
 
-// Best of 3 per batch
+// Best of 3 per batch — `kelasKey` sinkron dengan filter di leaderboard
 const batchBestOf3 = [
   {
+    kelasKey: "Onboarding PKWT Batch 1",
     batch: "PKWT",
     color: "blue",
     top3: [
@@ -72,6 +77,7 @@ const batchBestOf3 = [
     ],
   },
   {
+    kelasKey: "Onboarding Pro Hire Batch 1",
     batch: "Prohire",
     color: "violet",
     top3: [
@@ -80,7 +86,17 @@ const batchBestOf3 = [
       { rank: 3, name: "Fajar Nugroho", score: 81, progress: 84 },
     ],
   },
-]
+  {
+    kelasKey: "Onboarding MT/Organik Batch 2",
+    batch: "MT/Organik",
+    color: "teal",
+    top3: [
+      { rank: 1, name: "Rizky Fauzan", score: 92, progress: 95 },
+      { rank: 2, name: "Hendra Wijaya", score: 85, progress: 88 },
+      { rank: 3, name: "Farida Yunita", score: 78, progress: 82 },
+    ],
+  },
+] as const
 
 const participantClassSummary = {
   pkwt: { total: 4, completed: 1, onProgress: 1, passed: 1, unpassed: 0 },
@@ -93,6 +109,61 @@ const participantClassSummary = {
     unpassed: 0,
   },
 } as const
+
+/** Top 3 + contoh ranking pengguna (dashboard onboarding). */
+const onboardingTopPerformersRow = [
+  {
+    rank: 1,
+    name: "Doni Arief",
+    department: "Divisi Keamanan Informasi",
+    score: 98,
+    initials: "DA",
+    medalClass: "text-amber-500",
+    badgeClass: "bg-amber-500 text-white",
+  },
+  {
+    rank: 2,
+    name: "Ayu Pratama",
+    department: "Bagian SDM & Organisasi",
+    score: 95,
+    initials: "AP",
+    medalClass: "text-slate-400",
+    badgeClass: "bg-slate-400 text-white",
+  },
+  {
+    rank: 3,
+    name: "Rizky Fauzan",
+    department: "Unit Operasional",
+    score: 92,
+    initials: "RF",
+    medalClass: "text-amber-700",
+    badgeClass: "bg-orange-600 text-white",
+  },
+] as const
+
+const onboardingNotificationAlerts = [
+  {
+    key: "eval-l1",
+    title: "Belum mengisi Evaluasi Level 1:",
+    boxClass: "border-rose-100 bg-rose-50/90",
+    bulletClass: "bg-rose-500",
+    items: ["Iso 27001"],
+  },
+  {
+    key: "eval-l3",
+    title: "Belum mengisi Evaluasi Level 3:",
+    boxClass: "border-amber-100 bg-amber-50/90",
+    bulletClass: "bg-amber-500",
+    items: ["High Team Performance"],
+  },
+] as const
+
+function initialsFromName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
 
 const mentorStats = [
   {
@@ -239,6 +310,17 @@ const dashboardBackgroundStyle = {
 } satisfies React.CSSProperties
 
 export default function DashboardPage() {
+  const [adminKelasFilter, setAdminKelasFilter] = useState<"all" | string>(
+    "all"
+  )
+  const adminBestOf3Rows = useMemo(
+    () =>
+      adminKelasFilter === "all"
+        ? batchBestOf3
+        : batchBestOf3.filter((b) => b.kelasKey === adminKelasFilter),
+    [adminKelasFilter]
+  )
+
   const currentUser = getStoredDemoUser()
   const permissions = getRolePermissions(currentUser.role)
   const assignedTrack = getDemoUserTrack(currentUser)
@@ -367,6 +449,137 @@ export default function DashboardPage() {
                 <p>Completed: {participantSummary.completed}</p>
                 <p>On Progress: {participantSummary.onProgress}</p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200/80 bg-card p-5 shadow-sm">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                Top Performers
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Top Employees Ranking
+              </p>
+            </div>
+            <ul className="mt-4 space-y-4">
+              {onboardingTopPerformersRow.map((row) => (
+                <li key={row.rank} className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <div
+                      className={cn(
+                        "flex size-11 items-center justify-center rounded-full bg-linear-to-br text-sm font-semibold shadow-inner",
+                        row.rank === 1 &&
+                          "from-amber-100 to-amber-50 text-amber-900",
+                        row.rank === 2 &&
+                          "from-slate-200 to-slate-100 text-slate-800",
+                        row.rank === 3 &&
+                          "from-orange-100 to-orange-50 text-orange-900"
+                      )}
+                    >
+                      {row.initials}
+                    </div>
+                    <span
+                      className={cn(
+                        "absolute -right-0.5 -bottom-0.5 flex size-5 items-center justify-center rounded-full text-[10px] font-bold shadow-sm",
+                        row.badgeClass
+                      )}
+                    >
+                      {row.rank}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-foreground">
+                      {row.name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {row.department}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-700">
+                    Score: {row.score}/100
+                  </span>
+                  <Medal
+                    className={cn("size-6 shrink-0", row.medalClass)}
+                    strokeWidth={1.5}
+                  />
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-5 overflow-hidden rounded-xl border border-sky-200 bg-sky-50/90 shadow-sm">
+              <div className="flex items-center gap-3 border-l-4 border-sky-500 py-3 pr-3 pl-3">
+                <div className="relative shrink-0">
+                  <div className="flex size-11 items-center justify-center rounded-full bg-linear-to-br from-sky-200 to-sky-100 text-sm font-semibold text-sky-900">
+                    {initialsFromName(currentUser.name)}
+                  </div>
+                  <span className="absolute -right-0.5 -bottom-0.5 flex size-5 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white shadow-sm">
+                    7
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-foreground">
+                    {currentUser.name}{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (You)
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentUser.role}
+                  </p>
+                </div>
+                <p className="shrink-0 text-lg font-bold text-sky-700 tabular-nums">
+                  89/100
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200/80 bg-card p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-red-200 bg-red-50">
+                <Bell className="size-5 text-red-500" strokeWidth={2} />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  Pemberitahuan
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Notification Alerts
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {onboardingNotificationAlerts.map((alert) => (
+                <div
+                  key={alert.key}
+                  className={cn(
+                    "rounded-xl border px-4 py-3 shadow-sm",
+                    alert.boxClass
+                  )}
+                >
+                  <p className="text-sm font-semibold text-foreground">
+                    {alert.title}
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {alert.items.map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                      >
+                        <span
+                          className={cn(
+                            "size-1.5 shrink-0 rounded-full",
+                            alert.bulletClass
+                          )}
+                        />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -902,15 +1115,48 @@ export default function DashboardPage() {
 
       {/* ── Statistik per Kelas: Best of 3 ────────────────────────────── */}
       <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Star className="size-4 text-violet-500" />
-          <h2 className="text-sm font-semibold">Best of 3 — Per Kelas/Batch</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-2">
+            <Star className="mt-0.5 size-4 shrink-0 text-violet-500" />
+            <div>
+              <h2 className="text-sm font-semibold">
+                Best of 3 — Per Kelas/Batch
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                3 peserta terbaik di masing-masing batch berdasarkan skor
+                evaluasi.
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 text-sm sm:pt-0.5">
+            <label
+              htmlFor="dashboard-kelas-filter"
+              className="text-muted-foreground"
+            >
+              Kelas:
+            </label>
+            <select
+              id="dashboard-kelas-filter"
+              value={adminKelasFilter}
+              onChange={(e) => setAdminKelasFilter(e.target.value)}
+              className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-primary/30 focus:outline-none"
+            >
+              <option value="all">Semua Kelas</option>
+              {ONBOARDING_KELAS_OPTIONS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          3 peserta terbaik di masing-masing batch berdasarkan skor evaluasi.
-        </p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {batchBestOf3.map((cls) => {
+          {adminBestOf3Rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground sm:col-span-2 md:col-span-3">
+              Tidak ada data untuk kelas yang dipilih.
+            </p>
+          ) : null}
+          {adminBestOf3Rows.map((cls) => {
             const batchColorMap: Record<
               string,
               { header: string; border: string; bg: string; badge: string }
@@ -937,7 +1183,7 @@ export default function DashboardPage() {
             const bc = batchColorMap[cls.color]
             return (
               <div
-                key={cls.batch}
+                key={cls.kelasKey}
                 className={`rounded-xl border ${bc.border} ${bc.bg} p-4`}
               >
                 <div className="mb-3 flex items-center justify-between">
