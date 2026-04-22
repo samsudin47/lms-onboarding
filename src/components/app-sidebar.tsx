@@ -425,7 +425,8 @@ export function AppSidebar() {
           end={!item.track && !item.section}
           replace={
             item.path === "/class" &&
-            (item.id === "my-class" || Boolean(item.id?.startsWith("my-class-")))
+            (item.id === "my-class" ||
+              Boolean(item.id?.startsWith("my-class-")))
           }
         >
           {Icon ? <Icon className="size-4 shrink-0" /> : null}
@@ -439,12 +440,14 @@ export function AppSidebar() {
     <Sidebar
       variant="inset"
       collapsible="icon"
-      className="[&_[data-sidebar=sidebar]]:border-sky-200/20 [&_[data-sidebar=sidebar]]:bg-linear-to-b [&_[data-sidebar=sidebar]]:from-blue-900 [&_[data-sidebar=sidebar]]:via-blue-800 [&_[data-sidebar=sidebar]]:to-indigo-900 [&_[data-sidebar=sidebar]]:text-slate-50 [&_[data-sidebar=sidebar]]:shadow-[0_20px_60px_rgba(37,99,235,0.28)]"
+      className="pb-0 pl-0 [&_[data-sidebar=sidebar]]:overflow-hidden [&_[data-sidebar=sidebar]]:rounded-tr-[2.25rem] [&_[data-sidebar=sidebar]]:border-sky-200/20 [&_[data-sidebar=sidebar]]:bg-linear-to-b [&_[data-sidebar=sidebar]]:from-[#2663C8] [&_[data-sidebar=sidebar]]:to-[#1D52AF] [&_[data-sidebar=sidebar]]:text-slate-50 [&_[data-sidebar=sidebar]]:shadow-[0_20px_50px_rgba(38,99,200,0.22)]"
     >
       <SidebarHeader
         className={cn(
           "transition-[padding] duration-300 ease-out",
-          showFullPeruriLogo ? "p-3" : "flex justify-center px-1.5 pt-2 pb-2"
+          showFullPeruriLogo
+            ? "px-3 pt-5 pb-3"
+            : "flex justify-center px-1.5 pt-2 pb-2"
         )}
       >
         <div

@@ -2,6 +2,11 @@ import { Bell, ChevronDown, LogOut, Moon, Sun, UserRound } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom"
 
+import {
+  getDashboardNotificationAlerts,
+  getDashboardNotificationItemCount,
+} from "@/lib/dashboard-notifications"
+
 import { AppSidebar } from "@/components/app-sidebar"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +27,7 @@ import {
   getDemoUserTrack,
   getRoleKey,
   guestUser,
+  type DemoRoleKey,
   type DemoUser,
 } from "@/lib/demo-access"
 
@@ -65,6 +71,130 @@ function getClassHeaderCopy(section: string | null, track: string | null) {
         summary: "Journey class PKWT, Pro Hire, dan MT/Organik.",
       }
   }
+}
+
+function HeaderNotificationButton({
+  roleKey,
+  showReminderLink,
+}: {
+  roleKey: DemoRoleKey
+  showReminderLink: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const alerts = getDashboardNotificationAlerts(roleKey)
+  const count = getDashboardNotificationItemCount(alerts)
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
+  function cancelClose() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+
+  function handlePointerEnter() {
+    cancelClose()
+    setOpen(true)
+  }
+
+  function handlePointerLeave() {
+    cancelClose()
+    closeTimerRef.current = setTimeout(() => setOpen(false), 180)
+  }
+
+  return (
+    <div
+      className="relative"
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="relative cursor-pointer rounded-full border-0 shadow-none"
+        aria-label={`Pemberitahuan, ${count} butir`}
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        <Bell className="size-4" />
+        {count > 0 ? (
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+            {count}
+          </span>
+        ) : null}
+      </Button>
+
+      {open ? (
+        <div
+          className="absolute top-full right-0 z-50 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border bg-popover p-0 text-popover-foreground shadow-lg"
+          role="region"
+          aria-label="Pemberitahuan dashboard"
+        >
+          <div className="border-b border-border/80 px-3 py-2.5">
+            <p className="text-sm font-semibold">Pemberitahuan</p>
+            <p className="text-xs text-muted-foreground">
+              Ringkasan yang sama di dashboard
+            </p>
+          </div>
+          <div className="max-h-[min(20rem,50vh)] space-y-2 overflow-y-auto p-2">
+            {alerts.map((alert) => (
+              <div
+                key={alert.key}
+                className={cn(
+                  "rounded-xl border px-3 py-2.5 shadow-sm",
+                  alert.boxClass
+                )}
+              >
+                <p className="text-sm font-semibold text-foreground">
+                  {alert.title}
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {alert.items.map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-2 text-xs text-muted-foreground"
+                    >
+                      <span
+                        className={cn(
+                          "mt-1.5 size-1.5 shrink-0 rounded-full",
+                          alert.bulletClass
+                        )}
+                      />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-1 border-t border-border/80 p-2">
+            <Button asChild variant="secondary" size="sm" className="w-full">
+              <Link to="/dashboard">Buka dashboard</Link>
+            </Button>
+            {showReminderLink ? (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+              >
+                <Link to="/notifikasi-reminder-otomatis">
+                  Pengaturan reminder
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function ThemeToggleButton() {
@@ -188,7 +318,7 @@ function AppLayoutFrame({
 }: {
   currentFeature: { title: string; summary: string }
   currentUser: DemoUser
-  roleKey: string
+  roleKey: DemoRoleKey
   isRestrictedNavigationUser: boolean
   menuOpen: boolean
   menuRef: React.RefObject<HTMLDivElement | null>
@@ -224,26 +354,10 @@ function AppLayoutFrame({
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggleButton />
-            {!isRestrictedNavigationUser ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="icon-sm"
-                    className="rounded-full border-0 shadow-none"
-                  >
-                    <Link
-                      to="/notifikasi-reminder-otomatis"
-                      aria-label="3 notifikasi"
-                    >
-                      <Bell className="size-4" />
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">3 notifikasi</TooltipContent>
-              </Tooltip>
-            ) : null}
+            <HeaderNotificationButton
+              roleKey={roleKey}
+              showReminderLink={!isRestrictedNavigationUser}
+            />
 
             <div className="relative" ref={menuRef}>
               <button

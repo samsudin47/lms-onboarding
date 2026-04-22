@@ -16,6 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { participantNotificationAlerts } from "@/lib/dashboard-notifications"
 import {
   getDemoUserTrack,
   getRolePermissions,
@@ -139,23 +140,6 @@ const onboardingTopPerformersRow = [
     initials: "RF",
     medalClass: "text-amber-700",
     badgeClass: "bg-orange-600 text-white",
-  },
-] as const
-
-const onboardingNotificationAlerts = [
-  {
-    key: "eval-l1",
-    title: "Belum mengisi Evaluasi Level 1:",
-    boxClass: "border-rose-100 bg-rose-50/90",
-    bulletClass: "bg-rose-500",
-    items: ["Iso 27001"],
-  },
-  {
-    key: "eval-l3",
-    title: "Belum mengisi Evaluasi Level 3:",
-    boxClass: "border-amber-100 bg-amber-50/90",
-    bulletClass: "bg-amber-500",
-    items: ["High Team Performance"],
   },
 ] as const
 
@@ -552,7 +536,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="mt-4 space-y-3">
-              {onboardingNotificationAlerts.map((alert) => (
+              {participantNotificationAlerts.map((alert) => (
                 <div
                   key={alert.key}
                   className={cn(
