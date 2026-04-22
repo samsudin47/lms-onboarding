@@ -127,4 +127,52 @@
   html {
     @apply font-sans;
     }
+
+  a[href],
+  button,
+  [type="button"],
+  [type="submit"],
+  [type="reset"] {
+    cursor: pointer;
+  }
+  a[href][aria-disabled="true"],
+  button:disabled,
+  [type="button"]:disabled,
+  [type="submit"]:disabled,
+  [type="reset"]:disabled {
+    cursor: not-allowed;
+  }
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+  summary {
+    cursor: pointer;
+  }
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="switch"] {
+    cursor: pointer;
+  }
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="file"],
+  input[type="color"],
+  input[type="range"],
+  select {
+    cursor: pointer;
+  }
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    cursor: pointer;
+  }
 }

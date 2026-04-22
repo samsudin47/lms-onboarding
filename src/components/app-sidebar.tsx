@@ -23,6 +23,7 @@ import {
   type DemoRoleKey,
   type DemoUser,
 } from "@/lib/demo-access"
+import { getParticipantMyClassesHref } from "@/lib/participant-class-deeplink"
 import { cn } from "@/lib/utils"
 import {
   Sidebar,
@@ -42,6 +43,8 @@ type NavigationNode = {
   title: string
   icon?: LucideIcon
   path?: string
+  /** Href penuh (mis. deep-link ke detail journey untuk peserta). */
+  href?: string
   track?: string
   section?: string
   children?: NavigationNode[]
@@ -97,22 +100,25 @@ const myClassChildren: NavigationNode[] = [
     id: "my-class-pkwt",
     title: "PKWT",
     path: "/class",
+    href: getParticipantMyClassesHref("pkwt"),
     track: "pkwt",
-    section: "overview",
+    section: "journey-detail",
   },
   {
     id: "my-class-pro-hire",
     title: "Prohire",
     path: "/class",
+    href: getParticipantMyClassesHref("pro-hire"),
     track: "pro-hire",
-    section: "overview",
+    section: "journey-detail",
   },
   {
     id: "my-class-mt-organik",
     title: "MT/Organik",
     path: "/class",
+    href: getParticipantMyClassesHref("mt-organik"),
     track: "mt-organik",
-    section: "overview",
+    section: "journey-detail",
   },
 ]
 
@@ -127,6 +133,7 @@ const examinerChildren: NavigationNode[] = [
 
 function buildHref(item: NavigationNode) {
   if (!item.path) return "#"
+  if (item.href) return item.href
 
   const params = new URLSearchParams()
 
@@ -151,6 +158,15 @@ function matchesNode(
 
   if (!item.path || pathname !== item.path) return false
   if (item.track && activeTrack !== item.track) return false
+
+  if (item.id === "my-class" || item.id?.startsWith("my-class-")) {
+    return (
+      activeSection === "journey-detail" ||
+      activeSection === "quiz-summary" ||
+      activeSection === "overview"
+    )
+  }
+
   if (item.section && activeSection !== item.section) return false
 
   return true
@@ -217,8 +233,9 @@ function getNavigation(
         title: "My Classes",
         icon: Layers3,
         path: "/class",
+        href: getParticipantMyClassesHref(assignedTrack),
         track: assignedTrack,
-        section: "overview",
+        section: "journey-detail",
       }
     : {
         id: "my-class",
@@ -403,7 +420,14 @@ export function AppSidebar() {
             : "h-8 px-3 text-slate-200 group-data-[collapsible=icon]:hidden hover:bg-sky-400/15 data-[active=true]:bg-sky-400/25 data-[active=true]:text-white"
         )}
       >
-        <NavLink to={buildHref(item)} end={!item.track && !item.section}>
+        <NavLink
+          to={buildHref(item)}
+          end={!item.track && !item.section}
+          replace={
+            item.path === "/class" &&
+            (item.id === "my-class" || Boolean(item.id?.startsWith("my-class-")))
+          }
+        >
           {Icon ? <Icon className="size-4 shrink-0" /> : null}
           <span>{item.title}</span>
         </NavLink>

@@ -22,6 +22,7 @@ import {
   getStoredDemoUser,
 } from "@/lib/demo-access"
 import { ONBOARDING_KELAS_OPTIONS } from "@/lib/onboarding-kelas-filter"
+import { getParticipantMyClassesHref } from "@/lib/participant-class-deeplink"
 
 const adminStats = [
   {
@@ -325,7 +326,7 @@ export default function DashboardPage() {
   const permissions = getRolePermissions(currentUser.role)
   const assignedTrack = getDemoUserTrack(currentUser)
   const myClassHref = assignedTrack
-    ? `/class?track=${assignedTrack}&section=overview`
+    ? getParticipantMyClassesHref(assignedTrack)
     : "/class?section=overview"
   const summaryKey = assignedTrack ?? "pkwt"
   const participantSummary = participantClassSummary[summaryKey]

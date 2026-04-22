@@ -20,6 +20,11 @@ import {
 import courseImage from "@/assets/course.jpg"
 import courseImage2 from "@/assets/course-2.jpg"
 import courseImage3 from "@/assets/course-3.jpg"
+import {
+  PhaseFaseEvaluasiFeedback,
+  isEvaluasiFeedbackMateri,
+} from "@/components/phase-fase-evaluasi-feedback"
+import { JourneyCertificateSection } from "@/components/journey-certificate-section"
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -168,6 +173,8 @@ type JMateri = {
   contentLabel: string
   preTest: JQuizQuestion[]
   postTest: JQuizQuestion[]
+  /** Form umpan balik (tanpa pre/materi/post) — hanya ujung tiap fase. */
+  variant?: "standard" | "evaluasi-feedback"
 }
 type JFase = {
   id: string
@@ -176,6 +183,26 @@ type JFase = {
   deadline: string
   materi: JMateri[]
   evaluasiLabel?: string // MT only: evaluasi per fase
+}
+
+function buildEvaluasiMateriForFase(fase: JFase): JMateri {
+  return {
+    id: `${fase.id}__m-evaluasi`,
+    title: "Evaluasi",
+    deskripsi:
+      "Umpan balik fase: isi kuesioner Evaluasi Level 1 (tanpa pre-test, materi, atau post-test).",
+    contentLabel: "Evaluasi",
+    preTest: [],
+    postTest: [],
+    variant: "evaluasi-feedback",
+  }
+}
+
+function appendEvaluasiMateriToFases(fases: JFase[]): JFase[] {
+  return fases.map((f) => ({
+    ...f,
+    materi: [...f.materi, buildEvaluasiMateriForFase(f)],
+  }))
 }
 
 /** Pre/post test per materi: dibatasi untuk peserta onboarding agar demo presentasi singkat (1–2 soal). */
@@ -612,106 +639,6 @@ const JOURNEY_FASES_BY_TRACK: Record<ClassTrack, JFase[]> = {
                 },
                 { id: "c", text: "Email atasan" },
                 { id: "d", text: "Buku catatan pribadi" },
-              ],
-              correct: "b",
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: "jf-pkwt-03",
-      kode: "F03",
-      nama: "Evaluasi & Kelulusan",
-      deadline: "11 Apr 2026",
-      materi: [
-        {
-          id: "jm-pkwt-03-01",
-          title: "Review & Refleksi Program",
-          deskripsi:
-            "Mengulas kembali seluruh materi onboarding dan merefleksikan pemahaman serta kesiapan kerja.",
-          contentLabel: "Diskusi & Presentasi",
-          preTest: [
-            {
-              id: "q1",
-              text: "Tujuan utama program onboarding adalah...",
-              options: [
-                { id: "a", text: "Menghabiskan waktu" },
-                {
-                  id: "b",
-                  text: "Memperkenalkan karyawan pada lingkungan dan budaya kerja",
-                },
-                { id: "c", text: "Menguji kemampuan teknis" },
-                { id: "d", text: "Menilai gaji karyawan" },
-              ],
-              correct: "b",
-            },
-            {
-              id: "q2",
-              text: "Setelah onboarding selesai, karyawan diharapkan...",
-              options: [
-                { id: "a", text: "Langsung menjadi manajer" },
-                { id: "b", text: "Siap berkontribusi di unit kerja" },
-                { id: "c", text: "Mengikuti pelatihan lanjut dulu" },
-                { id: "d", text: "Menunggu penempatan" },
-              ],
-              correct: "b",
-            },
-            {
-              id: "q3",
-              text: "Refleksi program berguna untuk...",
-              options: [
-                { id: "a", text: "Mengkritik program" },
-                {
-                  id: "b",
-                  text: "Mengidentifikasi area yang perlu ditingkatkan",
-                },
-                { id: "c", text: "Menambah durasi onboarding" },
-                { id: "d", text: "Mengganti kebijakan perusahaan" },
-              ],
-              correct: "b",
-            },
-          ],
-          postTest: [
-            {
-              id: "pq1",
-              text: "Sertifikat penyelesaian program diberikan kepada karyawan yang...",
-              options: [
-                { id: "a", text: "Hadir minimal 1 hari" },
-                {
-                  id: "b",
-                  text: "Menyelesaikan seluruh tahapan onboarding",
-                },
-                { id: "c", text: "Membayar biaya program" },
-                { id: "d", text: "Lulus ujian tertulis nasional" },
-              ],
-              correct: "b",
-            },
-            {
-              id: "pq2",
-              text: "Feedback peserta onboarding berguna untuk...",
-              options: [
-                { id: "a", text: "Menghukum penyelenggara" },
-                {
-                  id: "b",
-                  text: "Meningkatkan kualitas program ke depan",
-                },
-                { id: "c", text: "Memperpanjang masa PKWT" },
-                { id: "d", text: "Menaikkan gaji" },
-              ],
-              correct: "b",
-            },
-            {
-              id: "pq3",
-              text: "Setelah onboarding, karyawan PKWT langsung...",
-              options: [
-                { id: "a", text: "Cuti satu bulan" },
-                {
-                  id: "b",
-                  text: "Bekerja di unit kerja yang ditugaskan",
-                },
-                { id: "c", text: "Mengulang proses seleksi" },
-                { id: "d", text: "Pindah perusahaan" },
               ],
               correct: "b",
             },
@@ -2919,6 +2846,22 @@ export default function ClassBatchPage() {
       }
     }
 
+    if (nextParams.get("section") === "overview") {
+      for (const key of [
+        "journey",
+        "step",
+        "fase",
+        "materi",
+        "mview",
+        "quiz",
+      ]) {
+        if (nextParams.has(key)) {
+          nextParams.delete(key)
+          hasChanges = true
+        }
+      }
+    }
+
     if (hasChanges) {
       setSearchParams(nextParams, { replace: true })
     }
@@ -2964,11 +2907,6 @@ export default function ClassBatchPage() {
   >("all")
   const [showJourneyCompletionNotice, setShowJourneyCompletionNotice] =
     useState(false)
-  const [evalRatings, setEvalRatings] = useState<Record<string, number>>({})
-  const [evalComments, setEvalComments] = useState<Record<string, string>>({})
-  const [evalSubmitted, setEvalSubmitted] = useState<Record<string, boolean>>(
-    {}
-  )
   const [batchSearch, setBatchSearch] = useState("")
   const [batchShowEntries, setBatchShowEntries] = useState(20)
   const [formShortname, setFormShortname] = useState("")
@@ -3046,6 +2984,10 @@ export default function ClassBatchPage() {
     Record<string, number>
   >({})
   const [faseEvalSubmitted, setFaseEvalSubmitted] = useState<
+    Record<string, boolean>
+  >({})
+  /** Kuesioner evaluasi feedback per materi ujung fase: `${batchId}__${materiId}` */
+  const [faseEvalFeedbackDone, setFaseEvalFeedbackDone] = useState<
     Record<string, boolean>
   >({})
   // Mentee form
@@ -5917,7 +5859,9 @@ export default function ClassBatchPage() {
             const summaryBatch = batches.find((b) => b.id === qJourney)
             const jTrackSum = summaryBatch?.track
             const journeyFasesSum = jTrackSum
-              ? (JOURNEY_FASES_BY_TRACK[jTrackSum] ?? [])
+              ? appendEvaluasiMateriToFases(
+                  JOURNEY_FASES_BY_TRACK[jTrackSum] ?? []
+                )
               : []
             const curFaseSum = journeyFasesSum.find((f) => f.id === qFase)
             const curMateriSum =
@@ -6213,9 +6157,9 @@ export default function ClassBatchPage() {
                   {selectedJourneyBatch?.name ?? `Journey ${activeTrack}`}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Selesaikan setiap fase secara berurutan. Materi dalam satu
-                  fase boleh dikerjakan dalam urutan bebas, namun tetap harus
-                  urut Pre Test → Materi → Post Test.
+                  Selesaikan setiap fase secara berurutan. Per materi: Pre Test →
+                  Materi → Post Test. Di ujung fase, isi{" "}
+                  <strong>Evaluasi</strong> (umpan balik, tanpa tes).
                 </p>
               </div>
               <Button asChild variant="outline">
@@ -6232,7 +6176,9 @@ export default function ClassBatchPage() {
             (() => {
               const jBatch = selectedJourneyBatch
               const jTrack = jBatch.track
-              const journeyFases = JOURNEY_FASES_BY_TRACK[jTrack] ?? []
+              const journeyFases = appendEvaluasiMateriToFases(
+                JOURNEY_FASES_BY_TRACK[jTrack] ?? []
+              )
               const batchId = jBatch.id
               const canRetake = jTrack !== "MT/Organik"
 
@@ -6248,8 +6194,13 @@ export default function ClassBatchPage() {
                 contentViewed[ctKey(mid)] ?? false
               const isPostDone = (mid: string) =>
                 quizSubmitted[postKey(mid)] ?? false
-              const isMDone = (mid: string) =>
-                isPreDone(mid) && isCDone(mid) && isPostDone(mid)
+              const faseEvalFeedbackKey = (mid: string) => `${batchId}__${mid}`
+              const isMDone = (mid: string) => {
+                if (mid.endsWith("__m-evaluasi")) {
+                  return faseEvalFeedbackDone[faseEvalFeedbackKey(mid)] ?? false
+                }
+                return isPreDone(mid) && isCDone(mid) && isPostDone(mid)
+              }
               const isFDone = (fase: JFase) =>
                 fase.materi.every((m) => isMDone(m.id))
               const isFLocked = (idx: number) =>
@@ -6553,18 +6504,6 @@ export default function ClassBatchPage() {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() =>
-                          alert(
-                            "Sertifikat berhasil diunduh! (simulasi — file PDF akan tersedia pada versi produksi)"
-                          )
-                        }
-                      >
-                        <Check className="size-4" />
-                        Unduh Sertifikat of Completion
-                      </Button>
                     </div>
                   )}
 
@@ -6646,6 +6585,7 @@ export default function ClassBatchPage() {
                                       type="button"
                                       onClick={() => {
                                         setActiveMateriId(m.id)
+                                        if (isEvaluasiFeedbackMateri(m)) return
                                         if (!isPreDone(m.id))
                                           setActiveMateriView("pre-test")
                                         else if (!isCDone(m.id))
@@ -6665,11 +6605,15 @@ export default function ClassBatchPage() {
                                           "size-2 shrink-0 rounded-full",
                                           mDone
                                             ? "bg-emerald-500"
-                                            : isPreDone(m.id) && isCDone(m.id)
-                                              ? "bg-amber-400"
-                                              : isPreDone(m.id)
+                                            : isEvaluasiFeedbackMateri(m)
+                                              ? isSelected
                                                 ? "bg-sky-400"
                                                 : "bg-slate-300"
+                                              : isPreDone(m.id) && isCDone(m.id)
+                                                ? "bg-amber-400"
+                                                : isPreDone(m.id)
+                                                  ? "bg-sky-400"
+                                                  : "bg-slate-300"
                                         )}
                                       />
                                       <span className="flex-1 truncate">
@@ -6757,7 +6701,25 @@ export default function ClassBatchPage() {
 
                     {/* RIGHT: Materi content */}
                     <div>
-                      {curMateri ? (
+                      {curMateri && isEvaluasiFeedbackMateri(curMateri) ? (
+                        <div className="rounded-xl border bg-card p-5 shadow-sm">
+                          <PhaseFaseEvaluasiFeedback
+                            faseKode={curFase?.kode ?? ""}
+                            faseNama={curFase?.nama ?? ""}
+                            done={
+                              faseEvalFeedbackDone[
+                                faseEvalFeedbackKey(curMateri.id)
+                              ] ?? false
+                            }
+                            onComplete={() =>
+                              setFaseEvalFeedbackDone((prev) => ({
+                                ...prev,
+                                [faseEvalFeedbackKey(curMateri.id)]: true,
+                              }))
+                            }
+                          />
+                        </div>
+                      ) : curMateri ? (
                         <div className="space-y-4">
                           {/* Tabs */}
                           <div className="flex gap-1 rounded-xl border bg-muted/30 p-1">
@@ -6933,115 +6895,16 @@ export default function ClassBatchPage() {
                     </div>
                   </div>
 
-                  {/* PKWT & Pro Hire: evaluasi + sertifikat setelah journey selesai */}
+                  {/* PKWT & Pro Hire: sertifikat setelah journey selesai */}
                   {jComplete &&
                     jTrack !== "MT/Organik" &&
                     permissions.key === "participant" && (
-                      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                        <div className="border-b px-5 py-4">
-                          <h3 className="text-base font-semibold">
-                            Evaluasi Program (Lvl 1 — Kepuasan)
-                          </h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            Berikan penilaian kepuasan Anda untuk program{" "}
-                            <strong>{jBatch.name}</strong>. Hanya 1 evaluasi per
-                            kelas.
-                          </p>
-                        </div>
-                        {evalSubmitted[jBatch.id] ? (
-                          <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-                            <div className="flex size-14 items-center justify-center rounded-full bg-emerald-100">
-                              <ClipboardCheck className="size-7 text-emerald-600" />
-                            </div>
-                            <p className="text-base font-semibold">
-                              Evaluasi Terkirim!
-                            </p>
-                            <div className="flex gap-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={cn(
-                                    "size-5",
-                                    star <= (evalRatings[jBatch.id] ?? 0)
-                                      ? "fill-amber-400 text-amber-400"
-                                      : "text-muted-foreground/30"
-                                  )}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-5 p-5">
-                            <div>
-                              <p className="mb-2 text-sm font-medium">
-                                Rating Program
-                              </p>
-                              <div className="flex gap-1.5">
-                                {[1, 2, 3, 4, 5].map((star) => {
-                                  const curr = evalRatings[jBatch.id] ?? 0
-                                  return (
-                                    <button
-                                      key={star}
-                                      type="button"
-                                      className="cursor-pointer rounded p-0.5 transition hover:scale-110"
-                                      onClick={() =>
-                                        setEvalRatings((prev) => ({
-                                          ...prev,
-                                          [jBatch.id]: star,
-                                        }))
-                                      }
-                                    >
-                                      <Star
-                                        className={cn(
-                                          "size-8 transition",
-                                          star <= curr
-                                            ? "fill-amber-400 text-amber-400"
-                                            : "text-muted-foreground/40"
-                                        )}
-                                      />
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                            <div>
-                              <label
-                                className="mb-2 block text-sm font-medium"
-                                htmlFor="eval-comment"
-                              >
-                                Catatan / Umpan Balik
-                              </label>
-                              <textarea
-                                id="eval-comment"
-                                rows={4}
-                                placeholder="Tuliskan pendapat Anda mengenai materi, penyampaian, dan pengalaman belajar..."
-                                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-                                value={evalComments[jBatch.id] ?? ""}
-                                onChange={(e) =>
-                                  setEvalComments((prev) => ({
-                                    ...prev,
-                                    [jBatch.id]: e.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                disabled={!(evalRatings[jBatch.id] ?? 0)}
-                                onClick={() =>
-                                  setEvalSubmitted((prev) => ({
-                                    ...prev,
-                                    [jBatch.id]: true,
-                                  }))
-                                }
-                              >
-                                Kirim Evaluasi
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <JourneyCertificateSection
+                        batchName={jBatch.name}
+                        batch={jBatch.batch}
+                        period={jBatch.period}
+                        track={jTrack}
+                      />
                     )}
                 </>
               )
@@ -7265,129 +7128,12 @@ export default function ClassBatchPage() {
               </div>
 
               {permissions.key === "participant" && (
-                <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                  <div className="border-b px-5 py-4">
-                    <h3 className="text-base font-semibold">Evaluasi Kelas</h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      Berikan penilaian Anda untuk kelas{" "}
-                      <strong>{selectedJourneyBatch.name}</strong>.
-                    </p>
-                  </div>
-                  {evalSubmitted[selectedJourneyBatch.id] ? (
-                    <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-                      <div className="flex size-14 items-center justify-center rounded-full bg-emerald-100">
-                        <ClipboardCheck className="size-7 text-emerald-600" />
-                      </div>
-                      <div>
-                        <p className="text-base font-semibold">
-                          Evaluasi Terkirim!
-                        </p>
-                        <p className="mt-0.5 text-sm text-muted-foreground">
-                          Terima kasih atas penilaian Anda untuk kelas ini.
-                        </p>
-                      </div>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={cn(
-                              "size-5",
-                              star <=
-                                (evalRatings[selectedJourneyBatch.id] ?? 0)
-                                ? "fill-amber-400 text-amber-400"
-                                : "text-muted-foreground/30"
-                            )}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-5 p-5">
-                      <div>
-                        <p className="mb-2 text-sm font-medium">Rating Kelas</p>
-                        <div className="flex gap-1.5">
-                          {[1, 2, 3, 4, 5].map((star) => {
-                            const currentRating =
-                              evalRatings[selectedJourneyBatch.id] ?? 0
-                            return (
-                              <button
-                                key={star}
-                                type="button"
-                                className="cursor-pointer rounded p-0.5 transition hover:scale-110"
-                                onClick={() =>
-                                  setEvalRatings((prev) => ({
-                                    ...prev,
-                                    [selectedJourneyBatch.id]: star,
-                                  }))
-                                }
-                              >
-                                <Star
-                                  className={cn(
-                                    "size-8 transition",
-                                    star <= currentRating
-                                      ? "fill-amber-400 text-amber-400"
-                                      : "text-muted-foreground/40"
-                                  )}
-                                />
-                              </button>
-                            )
-                          })}
-                        </div>
-                        {(evalRatings[selectedJourneyBatch.id] ?? 0) > 0 && (
-                          <p className="mt-1.5 text-sm text-muted-foreground">
-                            {
-                              [
-                                "",
-                                "Sangat Buruk",
-                                "Buruk",
-                                "Cukup",
-                                "Baik",
-                                "Sangat Baik",
-                              ][evalRatings[selectedJourneyBatch.id]]
-                            }
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label
-                          className="mb-2 block text-sm font-medium"
-                          htmlFor="eval-comment"
-                        >
-                          Catatan / Umpan Balik
-                        </label>
-                        <textarea
-                          id="eval-comment"
-                          rows={4}
-                          placeholder="Tuliskan pendapat Anda mengenai materi, penyampaian, dan pengalaman belajar di kelas ini..."
-                          className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-                          value={evalComments[selectedJourneyBatch.id] ?? ""}
-                          onChange={(e) =>
-                            setEvalComments((prev) => ({
-                              ...prev,
-                              [selectedJourneyBatch.id]: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          disabled={
-                            !(evalRatings[selectedJourneyBatch.id] ?? 0)
-                          }
-                          onClick={() =>
-                            setEvalSubmitted((prev) => ({
-                              ...prev,
-                              [selectedJourneyBatch.id]: true,
-                            }))
-                          }
-                        >
-                          Kirim Evaluasi
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <JourneyCertificateSection
+                  batchName={selectedJourneyBatch.name}
+                  batch={selectedJourneyBatch.batch}
+                  period={selectedJourneyBatch.period}
+                  track={selectedJourneyBatch.track}
+                />
               )}
             </>
           ) : (
