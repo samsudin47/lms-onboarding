@@ -1,7 +1,9 @@
-﻿import { useEffect, useRef, useState } from "react"
+﻿import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ChevronDown,
+  ClipboardList,
   Download,
+  FilePlus,
   PencilLine,
   Plus,
   Search,
@@ -11,9 +13,17 @@ import {
   CheckCircle2,
 } from "lucide-react"
 
+import {
+  CourseTestEditorModal,
+  newEmptyQuestion,
+  type CourseTestEditorValues,
+} from "@/components/course-test-editor-modal"
+import { SearchableSelect } from "@/components/searchable-select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { persistCourseQuizForMateri } from "@/lib/course-quiz-bridge"
 import { cn } from "@/lib/utils"
+import type { CourseQuizQuestion } from "@/types/course-quiz"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CourseCategory = "Onboarding" | "LMS"
@@ -37,6 +47,23 @@ type KategoriPelatihan =
   | "Teknik"
   | "Kepatuhan"
 
+type ContentType =
+  | "Deskripsi"
+  | "Pilihan Ganda"
+  | "Essay"
+  | "PDF"
+  | "Video"
+  | "Tugas"
+
+type CourseMaterialItem = {
+  id: string
+  title: string
+  type: ContentType
+  description: string
+  link: string
+  deadline: string
+}
+
 type CourseRow = {
   id: string
   kategori: CourseCategory
@@ -45,9 +72,26 @@ type CourseRow = {
   date: string
   jabatan: JabatanKey[]
   kategoriPelatihan: KategoriPelatihan[]
-  preTest: string
-  postTest: string
+  materials: CourseMaterialItem[]
+  preTestQuestions: CourseQuizQuestion[]
+  postTestQuestions: CourseQuizQuestion[]
+  /** Nilai minimum (%) untuk lulus pre/post test */
+  passingGrade: number
+  testsUseSameQuestions: boolean
+  /** Badge di layar peserta (via overlay journey) */
+  testLevelLabel: string
+  /** Sinkron bank soal ke materi journey (mock, localStorage) */
+  journeyMateriId: string | null
   visible: VisibleStatus
+}
+
+function testsConfiguredForPublish(
+  c: CourseRow | undefined | null
+): boolean {
+  if (!c) return false
+  const preOk = c.preTestQuestions.length > 0
+  const postOk = c.testsUseSameQuestions ? preOk : c.postTestQuestions.length > 0
+  return preOk && postOk
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -72,7 +116,68 @@ const ALL_KATEGORI: KategoriPelatihan[] = [
   "Kepatuhan",
 ]
 
+const CONTENT_TYPE_OPTIONS: ContentType[] = [
+  "Deskripsi",
+  "Video",
+  "PDF",
+  "Pilihan Ganda",
+  "Essay",
+  "Tugas",
+]
+
+function newCourseMaterialId(courseId: string): string {
+  return `mat-${courseId}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+/** Nilai 0–100; fallback bila kosong/tidak valid */
+function clampPassingGrade(raw: string, fallback = 70): number {
+  const n = Number.parseInt(raw.trim(), 10)
+  if (Number.isNaN(n)) return fallback
+  return Math.min(100, Math.max(0, n))
+}
+
 // ─── Seed data ────────────────────────────────────────────────────────────────
+const PKWT_DEMO_PRE: CourseQuizQuestion[] = [
+  {
+    id: "admin-q1",
+    text: "Peruri merupakan Badan Usaha Milik...",
+    options: [
+      { id: "a", text: "Swasta" },
+      { id: "b", text: "Negara" },
+      { id: "c", text: "Daerah" },
+      { id: "d", text: "Asing" },
+    ],
+    correct: "b",
+  },
+  {
+    id: "admin-q2",
+    text: "Apa kepanjangan dari Peruri?",
+    options: [
+      { id: "a", text: "Perum Percetakan Uang Republik Indonesia" },
+      { id: "b", text: "Perusahaan Rekayasa Uang Indonesia" },
+      { id: "c", text: "Percetakan Umum Rupiah Indonesia" },
+      { id: "d", text: "Perum Pengaman Rupiah Indonesia" },
+    ],
+    correct: "a",
+  },
+]
+
+function ph(key: string, label: string): CourseQuizQuestion[] {
+  return [
+    {
+      id: `ph-${key}`,
+      text: `${label} (sesuaikan lewat Atur test).`,
+      options: [
+        { id: "a", text: "Opsi A" },
+        { id: "b", text: "Opsi B" },
+        { id: "c", text: "Opsi C" },
+        { id: "d", text: "Opsi D" },
+      ],
+      correct: "a",
+    },
+  ]
+}
+
 const initialCourses: CourseRow[] = [
   {
     id: "cls-01",
@@ -82,8 +187,13 @@ const initialCourses: CourseRow[] = [
     date: "07 Apr 2026 - 11 Apr 2026",
     jabatan: ["PKWT"],
     kategoriPelatihan: ["SDM", "Umum"],
-    preTest: "Kuis 10 soal pilihan ganda — pemahaman awal budaya kerja",
-    postTest: "Essay refleksi nilai AKHLAK",
+    materials: [],
+    preTestQuestions: PKWT_DEMO_PRE,
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: true,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: "jm-pkwt-01-01",
     visible: "PUBLISH",
   },
   {
@@ -94,8 +204,13 @@ const initialCourses: CourseRow[] = [
     date: "03 Mar 2026 - 07 Mar 2026",
     jabatan: ["PKWT"],
     kategoriPelatihan: ["SDM", "Umum"],
-    preTest: "Kuis 10 soal pilihan ganda",
-    postTest: "Post test pilihan ganda 10 soal",
+    materials: [],
+    preTestQuestions: ph("02-pre", "Pre test"),
+    postTestQuestions: ph("02-post", "Post test"),
+    passingGrade: 70,
+    testsUseSameQuestions: false,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "PUBLISH",
   },
   {
@@ -106,8 +221,13 @@ const initialCourses: CourseRow[] = [
     date: "03 Feb 2026 - 07 Feb 2026",
     jabatan: ["PKWT"],
     kategoriPelatihan: ["SDM"],
-    preTest: "Kuis awal 5 soal",
-    postTest: "",
+    materials: [],
+    preTestQuestions: ph("03-pre", "Pre test"),
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: false,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "DRAFT",
   },
   {
@@ -118,8 +238,13 @@ const initialCourses: CourseRow[] = [
     date: "05 Mei 2026 - 09 Mei 2026",
     jabatan: ["PKWT"],
     kategoriPelatihan: ["SDM", "Umum"],
-    preTest: "",
-    postTest: "",
+    materials: [],
+    preTestQuestions: [],
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: true,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "DRAFT",
   },
   {
@@ -130,8 +255,13 @@ const initialCourses: CourseRow[] = [
     date: "09 Jun 2026 - 13 Jun 2026",
     jabatan: ["PKWT"],
     kategoriPelatihan: ["SDM"],
-    preTest: "",
-    postTest: "",
+    materials: [],
+    preTestQuestions: [],
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: true,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "DRAFT",
   },
   {
@@ -142,8 +272,13 @@ const initialCourses: CourseRow[] = [
     date: "14 Apr 2026 - 18 Apr 2026",
     jabatan: ["Pro Hire"],
     kategoriPelatihan: ["SDM", "IT"],
-    preTest: "Kuis 10 soal pilihan ganda",
-    postTest: "Essay penilaian project awal",
+    materials: [],
+    preTestQuestions: ph("06-pre", "Pre test"),
+    postTestQuestions: ph("06-post", "Post test"),
+    passingGrade: 75,
+    testsUseSameQuestions: false,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "PUBLISH",
   },
   {
@@ -154,8 +289,13 @@ const initialCourses: CourseRow[] = [
     date: "10 Mar 2026 - 14 Mar 2026",
     jabatan: ["Pro Hire"],
     kategoriPelatihan: ["SDM", "Umum"],
-    preTest: "Kuis awal onboarding",
-    postTest: "Kuis akhir onboarding",
+    materials: [],
+    preTestQuestions: ph("07-pre", "Pre test"),
+    postTestQuestions: ph("07-post", "Post test"),
+    passingGrade: 70,
+    testsUseSameQuestions: false,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "PUBLISH",
   },
   {
@@ -166,8 +306,13 @@ const initialCourses: CourseRow[] = [
     date: "12 Mei 2026 - 16 Mei 2026",
     jabatan: ["Pro Hire"],
     kategoriPelatihan: ["SDM"],
-    preTest: "",
-    postTest: "",
+    materials: [],
+    preTestQuestions: [],
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: true,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "DRAFT",
   },
   {
@@ -178,8 +323,13 @@ const initialCourses: CourseRow[] = [
     date: "09 Jun 2026 - 13 Jun 2026",
     jabatan: ["Pro Hire"],
     kategoriPelatihan: ["SDM", "IT"],
-    preTest: "",
-    postTest: "",
+    materials: [],
+    preTestQuestions: [],
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: true,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "DRAFT",
   },
   {
@@ -190,8 +340,13 @@ const initialCourses: CourseRow[] = [
     date: "01 Mei 2026 - 30 Mei 2026",
     jabatan: ["Staff", "Kaur", "Kasek"],
     kategoriPelatihan: ["Hukum", "Kepatuhan"],
-    preTest: "Kuis 10 soal regulasi dasar",
-    postTest: "",
+    materials: [],
+    preTestQuestions: ph("10-pre", "Pre test"),
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: false,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "DRAFT",
   },
   {
@@ -202,8 +357,13 @@ const initialCourses: CourseRow[] = [
     date: "01 Jun 2026 - 30 Jun 2026",
     jabatan: ["Kadep", "Kadiv"],
     kategoriPelatihan: ["Keuangan"],
-    preTest: "",
-    postTest: "",
+    materials: [],
+    preTestQuestions: [],
+    postTestQuestions: [],
+    passingGrade: 70,
+    testsUseSameQuestions: true,
+    testLevelLabel: "Lvl 2 — Pengetahuan",
+    journeyMateriId: null,
     visible: "DRAFT",
   },
 ]
@@ -344,10 +504,17 @@ export default function ClassesPage() {
   const [fKategoriPelatihan, setFKategoriPelatihan] = useState<
     KategoriPelatihan[]
   >([])
-  const [fPreTest, setFPreTest] = useState("")
-  const [fPostTest, setFPostTest] = useState("")
   const [fVisible, setFVisible] = useState<VisibleStatus>("DRAFT")
   const [publishError, setPublishError] = useState(false)
+
+  const [materialCourseId, setMaterialCourseId] = useState<string | null>(null)
+  const [mTitle, setMTitle] = useState("")
+  const [mType, setMType] = useState<ContentType>("Deskripsi")
+  const [mDescription, setMDescription] = useState("")
+  const [mLink, setMLink] = useState("")
+  const [mDeadline, setMDeadline] = useState("")
+
+  const [testCourseId, setTestCourseId] = useState<string | null>(null)
 
   // Delete confirm
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
@@ -371,8 +538,6 @@ export default function ClassesPage() {
     setFDate("")
     setFJabatan([])
     setFKategoriPelatihan([])
-    setFPreTest("")
-    setFPostTest("")
     setFVisible("DRAFT")
     setPublishError(false)
     setShowModal(true)
@@ -386,15 +551,20 @@ export default function ClassesPage() {
     setFDate(row.date)
     setFJabatan(row.jabatan)
     setFKategoriPelatihan(row.kategoriPelatihan)
-    setFPreTest(row.preTest)
-    setFPostTest(row.postTest)
     setFVisible(row.visible)
     setPublishError(false)
     setShowModal(true)
   }
 
   function handleVisibleChange(val: VisibleStatus) {
-    if (val === "PUBLISH" && !(fPreTest.trim() && fPostTest.trim())) {
+    if (val !== "PUBLISH") {
+      setPublishError(false)
+      setFVisible(val)
+      return
+    }
+    const cur =
+      editingId != null ? courses.find((c) => c.id === editingId) : null
+    if (!testsConfiguredForPublish(cur)) {
       setPublishError(true)
       return
     }
@@ -404,7 +574,11 @@ export default function ClassesPage() {
 
   function handleSave() {
     if (!fFullname.trim()) return
-    if (fVisible === "PUBLISH" && !(fPreTest.trim() && fPostTest.trim())) {
+    const existing = editingId
+      ? courses.find((c) => c.id === editingId)
+      : undefined
+    const keepTests = testsConfiguredForPublish(existing)
+    if (fVisible === "PUBLISH" && !keepTests) {
       setPublishError(true)
       return
     }
@@ -416,8 +590,13 @@ export default function ClassesPage() {
       date: fDate.trim(),
       jabatan: fJabatan,
       kategoriPelatihan: fKategoriPelatihan,
-      preTest: fPreTest.trim(),
-      postTest: fPostTest.trim(),
+      materials: existing?.materials ?? [],
+      preTestQuestions: existing?.preTestQuestions ?? [],
+      postTestQuestions: existing?.postTestQuestions ?? [],
+      passingGrade: existing?.passingGrade ?? 70,
+      testsUseSameQuestions: existing?.testsUseSameQuestions ?? true,
+      testLevelLabel: existing?.testLevelLabel ?? "Lvl 2 — Pengetahuan",
+      journeyMateriId: existing?.journeyMateriId ?? null,
       visible: fVisible,
     }
     setCourses((prev) =>
@@ -433,7 +612,129 @@ export default function ClassesPage() {
     setDeleteTargetId(null)
   }
 
-  const canPublishForm = fPreTest.trim() && fPostTest.trim()
+  function openMaterialModal(courseId: string) {
+    setMaterialCourseId(courseId)
+    setMTitle("")
+    setMType("Deskripsi")
+    setMDescription("")
+    setMLink("")
+    setMDeadline("")
+  }
+
+  function saveMaterialQuick() {
+    if (!materialCourseId) return
+    const titleT = mTitle.trim()
+    const descT = mDescription.trim()
+    if (!titleT && !descT) return
+    const mat: CourseMaterialItem = {
+      id: newCourseMaterialId(materialCourseId),
+      title: titleT,
+      type: titleT ? mType : "Deskripsi",
+      description: descT,
+      link: mLink.trim(),
+      deadline: mDeadline.trim(),
+    }
+    setCourses((prev) =>
+      prev.map((c) =>
+        c.id === materialCourseId
+          ? { ...c, materials: [...c.materials, mat] }
+          : c
+      )
+    )
+    setMaterialCourseId(null)
+  }
+
+  function openTestModal(id: string) {
+    if (!courses.find((x) => x.id === id)) return
+    setTestCourseId(id)
+  }
+
+  function saveCourseTests(payload: CourseTestEditorValues) {
+    if (!testCourseId) return
+    const pre = payload.preTestQuestions
+    const post = payload.testsUseSameQuestions ? pre : payload.postTestQuestions
+    setCourses((prev) =>
+      prev.map((c) => {
+        if (c.id !== testCourseId) return c
+        return {
+          ...c,
+          preTestQuestions: pre,
+          postTestQuestions: post,
+          testsUseSameQuestions: payload.testsUseSameQuestions,
+          passingGrade: clampPassingGrade(
+            String(payload.passingGrade),
+            c.passingGrade
+          ),
+          testLevelLabel: payload.testLevelLabel.trim() || "Lvl 2 — Pengetahuan",
+          journeyMateriId: payload.journeyMateriId?.trim()
+            ? payload.journeyMateriId.trim()
+            : null,
+        }
+      })
+    )
+    const mid = payload.journeyMateriId?.trim()
+    if (mid) {
+      persistCourseQuizForMateri(mid, {
+        preTestQuestions: pre,
+        postTestQuestions: post,
+        testsUseSameQuestions: payload.testsUseSameQuestions,
+        passingGrade: clampPassingGrade(String(payload.passingGrade), 70),
+        testLevelLabel: payload.testLevelLabel.trim() || "Lvl 2 — Pengetahuan",
+      })
+    }
+    setTestCourseId(null)
+  }
+
+  /** Snapshot untuk modal sesuai course terbaru */
+  const testEditorInitial = useMemo((): CourseTestEditorValues => {
+    const c = testCourseId ? courses.find((x) => x.id === testCourseId) : null
+    if (!c) {
+      return {
+        preTestQuestions: [],
+        postTestQuestions: [],
+        testsUseSameQuestions: true,
+        passingGrade: 70,
+        testLevelLabel: "Lvl 2 — Pengetahuan",
+        journeyMateriId: null,
+      }
+    }
+    return {
+      preTestQuestions:
+        c.preTestQuestions.length > 0
+          ? JSON.parse(JSON.stringify(c.preTestQuestions))
+          : [newEmptyQuestion()],
+      postTestQuestions:
+        c.postTestQuestions.length > 0
+          ? JSON.parse(JSON.stringify(c.postTestQuestions))
+          : [newEmptyQuestion()],
+      testsUseSameQuestions: c.testsUseSameQuestions,
+      passingGrade: c.passingGrade,
+      testLevelLabel: c.testLevelLabel || "Lvl 2 — Pengetahuan",
+      journeyMateriId: c.journeyMateriId,
+    }
+  }, [testCourseId, courses])
+
+  useEffect(() => {
+    const seed = initialCourses.find((x) => x.id === "cls-01")
+    if (
+      seed?.journeyMateriId &&
+      seed.preTestQuestions.length > 0
+    ) {
+      persistCourseQuizForMateri(seed.journeyMateriId, {
+        preTestQuestions: seed.preTestQuestions,
+        postTestQuestions: seed.testsUseSameQuestions
+          ? seed.preTestQuestions
+          : seed.postTestQuestions,
+        testsUseSameQuestions: seed.testsUseSameQuestions,
+        passingGrade: seed.passingGrade,
+        testLevelLabel: seed.testLevelLabel || "Lvl 2 — Pengetahuan",
+      })
+    }
+  }, [])
+
+  const modalCoursePreview =
+    editingId != null ? courses.find((c) => c.id === editingId) : null
+  const canPublishForm = testsConfiguredForPublish(modalCoursePreview ?? undefined)
 
   return (
     <section className="space-y-5">
@@ -446,7 +747,10 @@ export default function ClassesPage() {
           <h2 className="mt-1 text-2xl font-semibold">Courses</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Kelola daftar course onboarding dan LMS. Course hanya bisa dipublish
-            jika Pre Test dan Post Test sudah diisi.
+            jika bank soal pre/post (pilihan ganda) sudah lengkap lewat ikon
+            clipboard — tidak di form Edit. Ikon Tambah materi dan Atur test ada
+            di kolom terkanan bersama Edit dan Hapus. Isi opsional ID materi
+            journey agar soal tampil di layar peserta (mock: localStorage).
           </p>
         </div>
       </div>
@@ -553,8 +857,10 @@ export default function ClassesPage() {
                 </tr>
               ) : (
                 displayed.map((row, index) => {
-                  const hasPreTest = !!row.preTest.trim()
-                  const hasPostTest = !!row.postTest.trim()
+                  const hasPreTest = row.preTestQuestions.length > 0
+                  const hasPostTest = row.testsUseSameQuestions
+                    ? hasPreTest
+                    : row.postTestQuestions.length > 0
                   const canPublish = hasPreTest && hasPostTest
                   return (
                     <tr
@@ -609,7 +915,9 @@ export default function ClassesPage() {
                         <div className="flex items-center gap-2 text-xs">
                           <span
                             title={
-                              hasPreTest ? row.preTest : "Belum ada pre test"
+                              hasPreTest
+                                ? `${row.preTestQuestions.length} soal pre`
+                                : "Belum ada pre test"
                             }
                           >
                             {hasPreTest ? (
@@ -620,7 +928,11 @@ export default function ClassesPage() {
                           </span>
                           <span
                             title={
-                              hasPostTest ? row.postTest : "Belum ada post test"
+                              hasPostTest
+                                ? row.testsUseSameQuestions
+                                  ? "Post = bank sama dengan pre"
+                                  : `${row.postTestQuestions.length} soal post`
+                                : "Belum ada post test"
                             }
                           >
                             {hasPostTest ? (
@@ -659,7 +971,23 @@ export default function ClassesPage() {
                         </Button>
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openMaterialModal(row.id)}
+                            className="cursor-pointer text-muted-foreground transition hover:text-violet-600"
+                            title="Tambah materi"
+                          >
+                            <FilePlus className="size-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openTestModal(row.id)}
+                            className="cursor-pointer text-muted-foreground transition hover:text-teal-600"
+                            title="Tambah / atur test"
+                          >
+                            <ClipboardList className="size-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEdit(row)}
@@ -767,42 +1095,6 @@ export default function ClassesPage() {
                 onChange={setFKategoriPelatihan}
               />
 
-              {/* Pre Test */}
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Pre Test <span className="text-red-500">*</span>
-                  <span className="ml-1 text-xs font-normal text-muted-foreground">
-                    (wajib untuk publish)
-                  </span>
-                </label>
-                <Input
-                  value={fPreTest}
-                  onChange={(e) => {
-                    setFPreTest(e.target.value)
-                    setPublishError(false)
-                  }}
-                  placeholder="Contoh: Kuis 10 soal pilihan ganda"
-                />
-              </div>
-
-              {/* Post Test */}
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Post Test <span className="text-red-500">*</span>
-                  <span className="ml-1 text-xs font-normal text-muted-foreground">
-                    (wajib untuk publish)
-                  </span>
-                </label>
-                <Input
-                  value={fPostTest}
-                  onChange={(e) => {
-                    setFPostTest(e.target.value)
-                    setPublishError(false)
-                  }}
-                  placeholder="Contoh: Essay refleksi singkat"
-                />
-              </div>
-
               {/* Visible */}
               <div>
                 <label className="mb-1 block text-sm font-medium">
@@ -827,11 +1119,12 @@ export default function ClassesPage() {
                     dipublish.
                   </p>
                 )}
-                {!canPublishForm && (
+                {editingId != null && !canPublishForm ? (
                   <p className="mt-1 text-[11px] text-amber-600">
-                    Isi Pre Test dan Post Test agar course bisa dipublish.
+                    Atur pre/post test lewat ikon clipboard pada baris tabel
+                    sebelum memilih PUBLISH.
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -850,6 +1143,110 @@ export default function ClassesPage() {
           </div>
         </div>
       )}
+
+      {materialCourseId ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-semibold">
+              Tambah materi ke course
+            </h3>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Isi judul dan/atau deskripsi — boleh hanya deskripsi (mis. &quot;Materi
+              Pengenalan&quot;). Jika tanpa judul, tipe otomatis Deskripsi.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Judul materi{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    (opsional jika ada deskripsi)
+                  </span>
+                </label>
+                <Input
+                  value={mTitle}
+                  onChange={(e) => setMTitle(e.target.value)}
+                  placeholder="Contoh: Video orientasi"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Tipe
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    (diabaikan jika hanya deskripsi)
+                  </span>
+                </label>
+                <SearchableSelect
+                  value={mType}
+                  onChange={(v) => setMType(v as ContentType)}
+                  options={CONTENT_TYPE_OPTIONS.map((t) => ({
+                    value: t,
+                    label: t,
+                  }))}
+                  placeholder={CONTENT_TYPE_OPTIONS[0]}
+                  disabled={!mTitle.trim() && !!mDescription.trim()}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Deskripsi
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    (boleh mengisi ini saja)
+                  </span>
+                </label>
+                <textarea
+                  value={mDescription}
+                  onChange={(e) => setMDescription(e.target.value)}
+                  className="min-h-16 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none"
+                  placeholder='Contoh: Materi Pengenalan'
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Link (opsional)
+                </label>
+                <Input
+                  value={mLink}
+                  onChange={(e) => setMLink(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Deadline (opsional)
+                </label>
+                <Input
+                  value={mDeadline}
+                  onChange={(e) => setMDeadline(e.target.value)}
+                  placeholder="Contoh: 15 Apr 2026"
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMaterialCourseId(null)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={saveMaterialQuick}
+                disabled={!mTitle.trim() && !mDescription.trim()}
+              >
+                Simpan materi
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <CourseTestEditorModal
+        open={testCourseId !== null}
+        onClose={() => setTestCourseId(null)}
+        initial={testEditorInitial}
+        onSave={saveCourseTests}
+      />
 
       {/* Delete Confirm */}
       {deleteTargetId && (

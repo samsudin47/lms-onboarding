@@ -525,35 +525,35 @@ export const appFeatures: AppFeature[] = [
     ],
     actionLabel: "Sinkronkan data",
     links: [
-      { label: "Atur class onboarding", to: "/class" },
+      { label: "Atur course onboarding", to: "/class" },
       { label: "Buka dashboard", to: "/dashboard" },
     ],
   },
   {
     id: 8,
     path: "/class",
-    title: "My Classes",
-    summary: "Journey class PKWT, Pro Hire, dan MT/Organik.",
+    title: "My Courses",
+    summary: "Journey course onboarding PKWT, Pro Hire, dan MT/Organik.",
     description:
-      "Menampilkan class onboarding per track agar peserta, mentor, dan admin bisa mengikuti alur batch yang sesuai.",
+      "Menampilkan course onboarding per track agar peserta, mentor, dan admin bisa mengikuti alur batch yang sesuai.",
     benefit:
       "Memudahkan penjadwalan, pemantauan peserta, dan pengelolaan aktivitas onboarding per track.",
-    badge: "Class",
+    badge: "Course",
     icon: Users,
     checklist: [
       "Kelompokkan peserta berdasarkan periode atau batch",
-      "Atur jadwal onboarding per class",
+      "Atur jadwal onboarding per course",
       "Pantau jumlah peserta dan progres tiap batch",
     ],
     stats: [
-      { label: "Class aktif", value: "4" },
+      { label: "Course onboarding", value: "4 track" },
       { label: "Peserta per batch", value: "18-25" },
       { label: "Jadwal minggu ini", value: "6 sesi" },
     ],
     panels: [
       {
         title: "Pengelolaan batch",
-        description: "Contoh penyusunan class onboarding.",
+        description: "Contoh penyusunan course onboarding.",
         items: [
           "Batch April A - orientasi karyawan baru",
           "Batch April B - onboarding teknis unit kerja",
@@ -622,7 +622,7 @@ export const appFeatures: AppFeature[] = [
     actionLabel: "Kelola kategori",
     links: [
       { label: "Buka journey onboarding", to: "/journey-onboarding" },
-      { label: "Atur class onboarding", to: "/class" },
+      { label: "Atur course onboarding", to: "/class" },
     ],
   },
   {
@@ -719,21 +719,21 @@ export const appFeatures: AppFeature[] = [
   {
     id: 15,
     path: "/classes",
-    title: "Classes",
-    summary: "Kelola daftar kelas onboarding berdasarkan kategori dan batch.",
+    title: "Courses",
+    summary: "Kelola daftar course onboarding berdasarkan kategori dan batch.",
     description:
-      "Admin PSP dapat menambah, mengubah, dan menghapus data kelas dari berbagai kategori: PKWT, Prohire, dan Magang Trainee.",
-    benefit: "Memudahkan pengelolaan kelas dalam satu halaman terintegrasi.",
-    badge: "Kelas",
+      "Admin PSP dapat menambah, mengubah, dan menghapus course dari berbagai kategori: PKWT, Prohire, dan Magang Trainee.",
+    benefit: "Memudahkan pengelolaan course dalam satu halaman terintegrasi.",
+    badge: "Course",
     icon: Users,
     checklist: [
-      "Kelola kelas PKWT",
-      "Kelola kelas Prohire",
-      "Kelola kelas Magang Trainee",
+      "Kelola course PKWT",
+      "Kelola course Prohire",
+      "Kelola course Magang Trainee",
     ],
-    stats: [{ label: "Total kelas", value: "8+" }],
+    stats: [{ label: "Total course", value: "8+" }],
     panels: [],
-    actionLabel: "Kelola kelas",
+    actionLabel: "Kelola course",
     links: [{ label: "Buka dashboard", to: "/dashboard" }],
   },
   {

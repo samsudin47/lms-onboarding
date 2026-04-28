@@ -89,7 +89,7 @@ export default function RecruitmentIntegrationPage() {
                 Sinkronkan data sekarang
               </Button>
               <Button asChild variant="secondary">
-                <Link to="/class">Lanjut ke penempatan batch</Link>
+                <Link to="/class?section=batch-list">Lanjut ke penempatan batch</Link>
               </Button>
             </div>
             {connection === "ok" ? (

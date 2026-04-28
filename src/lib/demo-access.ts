@@ -41,7 +41,7 @@ const permissionMap: Record<DemoRoleKey, RolePermissions> = {
     key: "participant",
     label: "Peserta Onboarding",
     description:
-      "Hanya melihat dashboard dan my class sesuai track onboarding pribadi.",
+      "Hanya melihat dashboard dan course onboarding sesuai track pribadi.",
     canManageClass: false,
     canManageJourney: false,
     canManageModules: false,

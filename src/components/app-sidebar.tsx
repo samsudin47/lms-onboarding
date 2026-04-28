@@ -1,20 +1,23 @@
 import { useState } from "react"
 import {
   BarChart2,
+  Briefcase,
   ChevronDown,
   ClipboardCheck,
+  Database,
   DatabaseZap,
   LayoutDashboard,
   Layers3,
   ListChecks,
-  ShieldCheck,
+  School,
+  Tags,
   UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
-import iconChild from "@/assets/icon-child.jpeg"
+import iconChild from "@/assets/icon-child.png"
 import iconPeruri from "@/assets/icon-peruri.png"
 import {
   getDemoUserTrack,
@@ -31,9 +34,9 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
@@ -119,6 +122,33 @@ const myClassChildren: NavigationNode[] = [
     href: getParticipantMyClassesHref("mt-organik"),
     track: "mt-organik",
     section: "journey-detail",
+  },
+]
+
+const masterChildren: NavigationNode[] = [
+  {
+    id: "master-fase-link",
+    title: "Master Fase",
+    icon: DatabaseZap,
+    path: "/master-fase",
+  },
+  {
+    id: "master-bagian-evaluasi-link",
+    title: "Bagian Evaluasi",
+    icon: ListChecks,
+    path: "/master-bagian-evaluasi",
+  },
+  {
+    id: "master-jabatan-link",
+    title: "Jabatan Terkait",
+    icon: Briefcase,
+    path: "/master-jabatan",
+  },
+  {
+    id: "master-kategori-pelatihan-link",
+    title: "Kategori Pelatihan",
+    icon: Tags,
+    path: "/master-kategori-pelatihan",
   },
 ]
 
@@ -230,7 +260,7 @@ function getNavigation(
   const participantMyClassItem: NavigationNode = assignedTrack
     ? {
         id: "my-class",
-        title: "My Classes",
+        title: "My Courses",
         icon: Layers3,
         path: "/class",
         href: getParticipantMyClassesHref(assignedTrack),
@@ -239,7 +269,7 @@ function getNavigation(
       }
     : {
         id: "my-class",
-        title: "My Classes",
+        title: "My Courses",
         icon: Layers3,
         children: participantChildren,
       }
@@ -285,7 +315,7 @@ function getNavigation(
       {
         id: "management-admin",
         title: "Classes",
-        icon: ShieldCheck,
+        icon: School,
         path: "/class",
         section: "batch-list",
       },
@@ -316,20 +346,12 @@ function getNavigation(
   }
 
   if (roleKey === "adminPSP") {
-    items.push(
-      {
-        id: "master-fase-link",
-        title: "Master Fase",
-        icon: DatabaseZap,
-        path: "/master-fase",
-      },
-      {
-        id: "master-bagian-evaluasi-link",
-        title: "Master Bagian Evaluasi",
-        icon: ListChecks,
-        path: "/master-bagian-evaluasi",
-      }
-    )
+    items.push({
+      id: "data-master",
+      title: "Data Master",
+      icon: Database,
+      children: masterChildren,
+    })
   }
 
   items.push({
@@ -354,6 +376,7 @@ export function AppSidebar() {
   const activeSection = params.get("section") ?? ""
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     "my-class": true,
+    "data-master": true,
   })
 
   function toggleMenu(id: string) {
@@ -367,21 +390,31 @@ export function AppSidebar() {
     const Icon = item.icon
 
     if (hasChildren) {
+      const isDataMaster = item.id === "data-master"
       return (
-        <div key={item.id} className="space-y-1">
+        <SidebarMenuItem key={item.id}>
+          <div
+            className={cn("space-y-1", isDataMaster && "space-y-0.5")}
+          >
           <button
             type="button"
             onClick={() => toggleMenu(item.id)}
             className={cn(
-              "flex w-full items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-sm font-medium transition group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2",
+              "flex w-full items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-sm transition group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2",
               level === 0
-                ? "text-slate-50 hover:bg-sky-400/20 hover:text-white"
-                : "text-slate-200 group-data-[collapsible=icon]:hidden hover:bg-sky-400/15 hover:text-white",
-              isActive && "bg-sky-400/30 text-white"
+                ? "text-slate-50 hover:bg-white/15 hover:text-white"
+                : "text-slate-200 group-data-[collapsible=icon]:hidden hover:bg-white/12 hover:text-white",
+              isDataMaster ? "py-2.5 font-semibold" : "font-medium",
+              isActive && "bg-white/22 text-white"
             )}
             title={item.title}
           >
-            {Icon ? <Icon className="size-4 shrink-0" /> : null}
+            {Icon ? (
+              <Icon
+                className="size-4 shrink-0"
+                strokeWidth={isDataMaster ? 2 : 1.75}
+              />
+            ) : null}
             <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
               {item.title}
             </span>
@@ -394,30 +427,46 @@ export function AppSidebar() {
           </button>
 
           {isOpen ? (
-            <div
+            <ul
               className={cn(
-                "ml-4 space-y-1 border-l border-white/10 pl-3 group-data-[collapsible=icon]:hidden",
-                level > 0 && "ml-3"
+                "ml-4 list-none space-y-1 border-l pl-3 group-data-[collapsible=icon]:hidden",
+                isDataMaster ? "border-white/25 py-1" : "border-white/10",
+                level > 0 && !isDataMaster && "ml-3"
               )}
             >
               {item.children?.map((child) => renderNode(child, level + 1))}
-            </div>
+            </ul>
           ) : null}
         </div>
+        </SidebarMenuItem>
       )
     }
 
+    const isNestedUnderDataMaster =
+      level > 0 && Boolean(item.path?.startsWith("/master-"))
+
     return (
-      <SidebarMenuButton
-        key={item.id}
-        asChild
-        isActive={isActive}
-        tooltip={level === 0 ? item.title : undefined}
-        className={cn(
+      <SidebarMenuItem key={item.id}>
+        <SidebarMenuButton
+          asChild
+          isActive={isActive}
+          tooltip={level === 0 ? item.title : undefined}
+          className={cn(
           "rounded-xl font-medium hover:text-white",
           level === 0
-            ? "text-slate-50 hover:bg-sky-400/20 data-[active=true]:bg-sky-400/35 data-[active=true]:text-white"
-            : "h-8 px-3 text-slate-200 group-data-[collapsible=icon]:hidden hover:bg-sky-400/15 data-[active=true]:bg-sky-400/25 data-[active=true]:text-white"
+            ? cn(
+                "text-slate-50 outline-none transition-[background-color,color,opacity] duration-150 ease-out",
+                "hover:bg-white/15 active:bg-white/20 active:text-white",
+                "data-[active=true]:bg-white/28 data-[active=true]:text-white",
+                "focus-visible:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-0"
+              )
+            : cn(
+                "px-3 text-slate-200 outline-none transition-[background-color,color,opacity] duration-150 ease-out group-data-[collapsible=icon]:hidden",
+                "hover:bg-white/12 active:bg-white/18 active:text-white",
+                "data-[active=true]:bg-white/22 data-[active=true]:text-white",
+                "focus-visible:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0",
+                isNestedUnderDataMaster ? "min-h-10 py-2.5" : "h-8"
+              )
         )}
       >
         <NavLink
@@ -428,11 +477,15 @@ export function AppSidebar() {
             (item.id === "my-class" ||
               Boolean(item.id?.startsWith("my-class-")))
           }
+          className="flex min-h-0 min-w-0 flex-1 items-center gap-2"
         >
-          {Icon ? <Icon className="size-4 shrink-0" /> : null}
-          <span>{item.title}</span>
+          {Icon ? (
+            <Icon className="size-4 shrink-0 stroke-[1.75]" aria-hidden />
+          ) : null}
+          <span className="min-w-0 truncate leading-snug">{item.title}</span>
         </NavLink>
       </SidebarMenuButton>
+      </SidebarMenuItem>
     )
   }
 
@@ -440,63 +493,88 @@ export function AppSidebar() {
     <Sidebar
       variant="inset"
       collapsible="icon"
-      className="pb-0 pl-0 [&_[data-sidebar=sidebar]]:overflow-hidden [&_[data-sidebar=sidebar]]:rounded-tr-[2.25rem] [&_[data-sidebar=sidebar]]:border-sky-200/20 [&_[data-sidebar=sidebar]]:bg-linear-to-b [&_[data-sidebar=sidebar]]:from-[#2663C8] [&_[data-sidebar=sidebar]]:to-[#1D52AF] [&_[data-sidebar=sidebar]]:text-slate-50 [&_[data-sidebar=sidebar]]:shadow-[0_20px_50px_rgba(38,99,200,0.22)]"
+      className="pb-0 pl-0 [&_[data-sidebar=sidebar]]:overflow-hidden [&_[data-sidebar=sidebar]]:rounded-t-xl [&_[data-sidebar=sidebar]]:rounded-b-none [&_[data-sidebar=sidebar]]:bg-white"
     >
-      <SidebarHeader
+      {/* Strip putih: tinggi sama dengan navbar utama (h-16) agar selaras secara vertikal */}
+      <div
         className={cn(
-          "transition-[padding] duration-300 ease-out",
-          showFullPeruriLogo
-            ? "px-3 pt-5 pb-3"
-            : "flex justify-center px-1.5 pt-2 pb-2"
+          "flex h-16 shrink-0 items-center bg-white transition-[padding] duration-300 ease-out",
+          showFullPeruriLogo ? "justify-center px-3" : "justify-center px-2"
         )}
       >
         <div
-          className={cn(
-            "relative overflow-hidden border border-white/10 bg-white shadow-sm ring-1 ring-black/5",
-            "transition-[width,height,border-radius,box-shadow] duration-300 ease-out",
-            showFullPeruriLogo
-              ? "h-24 w-full max-w-full rounded-2xl"
-              : "h-8 w-8 max-w-8 shrink-0 rounded-xl"
-          )}
-          title="Peruri"
+          className={cn("flex min-h-0 w-full items-center justify-center px-1")}
         >
-          <img
-            src={iconPeruri}
-            alt=""
-            aria-hidden
+          <div
             className={cn(
-              "absolute inset-0 size-full object-cover object-center transition-opacity duration-300 ease-out",
+              "relative shrink-0 overflow-hidden border-0 bg-transparent shadow-none ring-0 transition-[width,height,border-radius] duration-300 ease-out",
               showFullPeruriLogo
-                ? "opacity-100"
-                : "pointer-events-none opacity-0"
+                ? "flex h-[52px] w-full max-w-[188px] items-center justify-center sm:h-14 sm:max-w-[200px]"
+                : "flex size-10 items-center justify-center"
             )}
-          />
-          <img
-            src={iconChild}
-            alt="Peruri"
-            className={cn(
-              "absolute inset-0 box-border size-full object-contain p-1 transition-opacity duration-300 ease-out",
-              showFullPeruriLogo
-                ? "pointer-events-none opacity-0"
-                : "opacity-100"
-            )}
-          />
+            title="Peruri"
+          >
+            <img
+              src={iconPeruri}
+              alt=""
+              aria-hidden
+              className={cn(
+                "transition-opacity duration-300 ease-out",
+                showFullPeruriLogo
+                  ? "h-full max-h-full w-full max-w-full object-contain object-center opacity-100"
+                  : "pointer-events-none absolute inset-0 size-full object-cover opacity-0"
+              )}
+            />
+            <img
+              src={iconChild}
+              alt="Logo Peruri"
+              className={cn(
+                "absolute inset-0 box-border size-full object-contain transition-opacity duration-300 ease-out",
+                showFullPeruriLogo
+                  ? "pointer-events-none p-1 opacity-0"
+                  : "p-1 opacity-100"
+              )}
+            />
+          </div>
         </div>
-      </SidebarHeader>
+      </div>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] tracking-[0.22em] text-slate-200/80 uppercase">
-            Akses {currentUser.role}
-          </SidebarGroupLabel>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-hidden border border-t-0 border-white/12 shadow-[0_20px_50px_rgba(32,40,135,0.35)]",
+          "rounded-tr-[5.25rem]",
+          "bg-[#202887] text-slate-50"
+        )}
+      >
+        <SidebarContent className="min-h-0">
+          <SidebarGroup
+            className={cn(roleKey === "participant" && "px-2 pb-2 pt-4")}
+          >
+            <SidebarGroupLabel
+              className={cn(
+                "text-[11px] tracking-[0.22em] text-slate-200/80 uppercase",
+                roleKey === "participant"
+                  ? "mb-3 mt-0 h-auto min-h-0 items-start justify-start px-2 py-1 leading-relaxed whitespace-normal"
+                  : "mb-1.5"
+              )}
+            >
+              Akses {currentUser.role}
+            </SidebarGroupLabel>
 
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {navigationItems.map((item) => renderNode(item))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+            <SidebarGroupContent>
+              <SidebarMenu
+                className={cn(
+                  "list-none",
+                  roleKey === "participant" ? "gap-2" : "gap-1"
+                )}
+              >
+                {navigationItems.map((item) => renderNode(item))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </div>
+
       <SidebarRail />
     </Sidebar>
   )

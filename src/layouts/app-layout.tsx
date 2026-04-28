@@ -1,5 +1,5 @@
 import { Bell, ChevronDown, LogOut, Moon, Sun, UserRound } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom"
 
 import {
@@ -13,7 +13,6 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   Tooltip,
@@ -31,7 +30,11 @@ import {
   type DemoUser,
 } from "@/lib/demo-access"
 
-function getClassHeaderCopy(section: string | null, track: string | null) {
+function getClassHeaderCopy(
+  section: string | null,
+  track: string | null,
+  roleKey: DemoRoleKey
+) {
   const trackLabel =
     track === "pkwt"
       ? "PKWT"
@@ -46,6 +49,13 @@ function getClassHeaderCopy(section: string | null, track: string | null) {
     case "catalog-detail":
     case "other-training":
     case "journey-detail":
+      if (roleKey === "participant") {
+        return {
+          title: "Course",
+          summary:
+            "Katalog course onboarding berdasarkan kategori dan batch.",
+        }
+      }
       return {
         title: "Class",
         summary: "Katalog class onboarding berdasarkan kategori dan batch.",
@@ -66,6 +76,12 @@ function getClassHeaderCopy(section: string | null, track: string | null) {
         summary: "Kelola daftar mentor dan co-mentor onboarding.",
       }
     default:
+      if (roleKey === "participant") {
+        return {
+          title: "My Courses",
+          summary: "Journey course PKWT, Pro Hire, dan MT/Organik.",
+        }
+      }
       return {
         title: "My Classes",
         summary: "Journey class PKWT, Pro Hire, dan MT/Organik.",
@@ -229,13 +245,6 @@ export default function AppLayout() {
   const { pathname, search } = useLocation()
   const featureFromPath =
     getFeatureByPath(pathname) ?? getFeatureByPath("/dashboard")!
-  const currentFeature =
-    pathname === "/class"
-      ? getClassHeaderCopy(
-          new URLSearchParams(search).get("section"),
-          new URLSearchParams(search).get("track")
-        )
-      : featureFromPath
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<DemoUser>(() => {
@@ -244,6 +253,15 @@ export default function AppLayout() {
     return storedUser ? (JSON.parse(storedUser) as DemoUser) : guestUser
   })
   const roleKey = getRoleKey(currentUser.role)
+
+  const currentFeature = useMemo(() => {
+    if (pathname !== "/class") return featureFromPath
+    return getClassHeaderCopy(
+      new URLSearchParams(search).get("section"),
+      new URLSearchParams(search).get("track"),
+      roleKey
+    )
+  }, [pathname, search, roleKey, featureFromPath])
   const isRestrictedOnboardingUser =
     roleKey === "participant" && Boolean(getDemoUserTrack(currentUser))
   const restrictedAllowedPaths = isRestrictedOnboardingUser
@@ -325,25 +343,17 @@ function AppLayoutFrame({
   setMenuOpen: React.Dispatch<React.SetStateAction<boolean>>
   handleLogout: () => void
 }) {
-  const { state: sidebarState } = useSidebar()
-
   return (
     <>
       <AppSidebar />
 
-      <SidebarInset className="relative">
+      <SidebarInset className="relative flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-0 sm:gap-4 sm:px-6 sm:pb-6">
         <header
-          className={cn(
-            "fixed top-2 right-4 left-4 z-40 flex h-16 items-center gap-3 rounded-[24px] bg-background/95 px-3 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80 md:right-6",
-            roleKey === "adminPSP" ? "border-0" : "border",
-            sidebarState === "collapsed"
-              ? "md:left-[calc(var(--sidebar-width-icon)+1.5rem)]"
-              : "md:left-[calc(var(--sidebar-width)+1.5rem)]"
-          )}
+          className="relative z-40 flex h-16 shrink-0 items-center gap-3 border-0 bg-background px-2 py-0 shadow-none sm:px-3"
         >
-          <SidebarTrigger />
+          <SidebarTrigger className="shrink-0" />
 
-          <div className="min-w-0">
+          <div className="flex min-h-0 min-w-0 flex-col justify-center leading-tight">
             <p className="truncate text-sm font-semibold">
               {currentFeature.title}
             </p>
@@ -418,7 +428,7 @@ function AppLayoutFrame({
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col p-4 pt-22 sm:p-6 sm:pt-24">
+        <div className="flex min-h-0 flex-1 flex-col">
           <Outlet />
         </div>
       </SidebarInset>

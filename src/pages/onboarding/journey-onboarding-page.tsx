@@ -1432,7 +1432,7 @@ export default function JourneyOnboardingPage() {
               </div>
               <div className="mt-4 flex flex-col gap-2">
                 <Button asChild variant="outline">
-                  <Link to="/class">Kelola batch onboarding</Link>
+                  <Link to="/class?section=batch-list">Kelola batch onboarding</Link>
                 </Button>
                 <Button asChild variant="ghost">
                   <Link to="/journey-onboarding?section=mentee-list">

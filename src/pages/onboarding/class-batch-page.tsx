@@ -24,7 +24,10 @@ import {
   PhaseFaseEvaluasiFeedback,
   isEvaluasiFeedbackMateri,
 } from "@/components/phase-fase-evaluasi-feedback"
+import { CertificateSettingsModal } from "@/components/certificate-settings-modal"
 import { JourneyCertificateSection } from "@/components/journey-certificate-section"
+import { JourneyMateriDemoEmbed } from "@/components/journey-materi-demo-embed"
+import { SearchableSelect } from "@/components/searchable-select"
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -40,7 +43,19 @@ import {
   getRolePermissions,
   getStoredDemoUser,
 } from "@/lib/demo-access"
+import { isCertificateConfigured } from "@/lib/certificate-settings-storage"
+import {
+  getOverlayPassingGrade,
+  getQuizLevelLabel,
+  mergeMateriQuizFromOverlay,
+  overlayTestsUseSameQuestions,
+} from "@/lib/course-quiz-bridge"
+import { dropdownNeedsSearch } from "@/lib/dropdown-search"
+import { derivePrePostQuizSets } from "@/lib/journey-quiz-utils"
+import type { CourseQuizQuestion } from "@/types/course-quiz"
 import { cn } from "@/lib/utils"
+
+type JQuizQuestion = CourseQuizQuestion
 
 type ClassTrack = "PKWT" | "Pro Hire" | "MT/Organik"
 
@@ -159,18 +174,15 @@ type JourneyStep = {
 }
 
 // ── Rich journey types for the participant fase/materi flow ──────────────────
-type JQuizOption = { id: string; text: string }
-type JQuizQuestion = {
-  id: string
-  text: string
-  options: JQuizOption[]
-  correct: string
-}
 type JMateri = {
   id: string
   title: string
   deskripsi: string
   contentLabel: string
+  /** Urutan konten demo di tab Materi (mis. slide PDF lalu video). Kosong = satu jenis dari pola contentLabel. */
+  contentSequence?: ("pdf" | "video")[]
+  /** Label tiap langkah; paralel dengan contentSequence */
+  contentStepLabels?: string[]
   preTest: JQuizQuestion[]
   postTest: JQuizQuestion[]
   /** Form umpan balik (tanpa pre/materi/post) — hanya ujung tiap fase. */
@@ -205,23 +217,6 @@ function appendEvaluasiMateriToFases(fases: JFase[]): JFase[] {
   }))
 }
 
-/** Pre/post test per materi: dibatasi untuk peserta onboarding agar demo presentasi singkat (1–2 soal). */
-const ONBOARDING_PARTICIPANT_QUIZ_CAP = 2
-
-function shuffleJourneyQuiz(
-  qs: JQuizQuestion[],
-  seed: string
-): JQuizQuestion[] {
-  const arr = [...qs]
-  let h = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
-  for (let i = arr.length - 1; i > 0; i--) {
-    h = (h * 1664525 + 1013904223) >>> 0
-    const j = h % (i + 1)
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
-}
-
 type PostQuizAttemptRecord = {
   at: string
   score: number
@@ -254,6 +249,8 @@ const JOURNEY_FASES_BY_TRACK: Record<ClassTrack, JFase[]> = {
           deskripsi:
             "Memahami sejarah, visi misi, dan nilai-nilai Peruri sebagai perusahaan percetakan keamanan negara.",
           contentLabel: "Slide Presentasi",
+          contentSequence: ["pdf", "video"],
+          contentStepLabels: ["Slide Presentasi", "Video"],
           preTest: [
             {
               id: "q1",
@@ -660,6 +657,8 @@ const JOURNEY_FASES_BY_TRACK: Record<ClassTrack, JFase[]> = {
           deskripsi:
             "Memahami sejarah, visi misi, dan nilai-nilai Peruri untuk karyawan level supervisor & specialist.",
           contentLabel: "Slide Presentasi",
+          contentSequence: ["pdf", "video"],
+          contentStepLabels: ["Slide Presentasi", "Video"],
           preTest: [
             {
               id: "q1",
@@ -2548,6 +2547,7 @@ function MultiSelectField({
   value,
   onChange,
   emptyText,
+  dynamic,
 }: {
   id: string
   label: string
@@ -2555,9 +2555,22 @@ function MultiSelectField({
   value: string[]
   onChange: (next: string[]) => void
   emptyText: string
+  dynamic?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const [optionSearch, setOptionSearch] = useState("")
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const searchableMulti = dropdownNeedsSearch(options.length, { dynamic })
+  const filteredMultiOptions = useMemo(() => {
+    const q = optionSearch.trim().toLowerCase()
+    if (!searchableMulti || !q) return options
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        o.value.toLowerCase().includes(q)
+    )
+  }, [options, optionSearch, searchableMulti])
+
   const allSelected = options.length > 0 && value.length === options.length
   const selectedLabels = options
     .filter((option) => value.includes(option.value))
@@ -2573,6 +2586,7 @@ function MultiSelectField({
     function handleClickOutside(event: MouseEvent) {
       if (!containerRef.current?.contains(event.target as Node)) {
         setOpen(false)
+        setOptionSearch("")
       }
     }
 
@@ -2609,7 +2623,13 @@ function MultiSelectField({
       <button
         id={id}
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() =>
+          setOpen((prev) => {
+            const next = !prev
+            setOptionSearch("")
+            return next
+          })
+        }
         className={cn(
           "flex min-h-11 w-full items-center justify-between rounded-2xl border border-input bg-background px-4 py-3 text-left text-sm shadow-sm transition",
           open && "border-primary ring-2 ring-primary/10"
@@ -2648,9 +2668,29 @@ function MultiSelectField({
             />
           </button>
 
+          {searchableMulti ? (
+            <div className="border-b px-2 py-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={optionSearch}
+                  onChange={(e) => setOptionSearch(e.target.value)}
+                  placeholder="Cari…"
+                  className="h-9 rounded-xl pl-8"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          ) : null}
+
           {options.length ? (
             <div className="max-h-64 overflow-y-auto py-1">
-              {options.map((option) => {
+              {filteredMultiOptions.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-muted-foreground">
+                  Tidak ada hasil.
+                </div>
+              ) : (
+                filteredMultiOptions.map((option) => {
                 const checked = value.includes(option.value)
 
                 return (
@@ -2669,7 +2709,8 @@ function MultiSelectField({
                     />
                   </button>
                 )
-              })}
+              })
+              )}
             </div>
           ) : (
             <div className="px-4 py-3 text-sm text-muted-foreground">
@@ -2689,6 +2730,7 @@ function SingleSelectField({
   value,
   onChange,
   emptyText,
+  dynamic,
 }: {
   id: string
   label: string
@@ -2696,91 +2738,22 @@ function SingleSelectField({
   value: string
   onChange: (next: string) => void
   emptyText: string
+  dynamic?: boolean
 }) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const selectedOption = options.find((option) => option.value === value)
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside)
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [])
-
   return (
-    <div ref={containerRef} className="relative">
+    <div className="relative">
       <label className="mb-1 block text-sm font-medium" htmlFor={id}>
         {label}
       </label>
-      <button
+      <SearchableSelect
         id={id}
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "flex min-h-11 w-full items-center justify-between rounded-2xl border border-input bg-background px-4 py-3 text-left text-sm shadow-sm transition",
-          open && "border-primary ring-2 ring-primary/10"
-        )}
-        aria-expanded={open}
-      >
-        <span
-          className={cn(
-            "truncate pr-3",
-            !selectedOption && "text-muted-foreground"
-          )}
-        >
-          {selectedOption?.label ?? emptyText}
-        </span>
-        <ChevronDown
-          className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-
-      {open ? (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border bg-background shadow-xl">
-          <div className="max-h-64 overflow-y-auto py-1">
-            {options.length ? (
-              options.map((option) => {
-                const checked = option.value === value
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => {
-                      onChange(option.value)
-                      setOpen(false)
-                    }}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm hover:bg-muted/50"
-                  >
-                    <span className="truncate">{option.label}</span>
-                    <Check
-                      className={cn(
-                        "size-4 shrink-0 text-primary transition-opacity",
-                        checked ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  </button>
-                )
-              })
-            ) : (
-              <div className="px-4 py-3 text-sm text-muted-foreground">
-                Belum ada data tersedia.
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
+        value={value}
+        onChange={onChange}
+        options={options}
+        placeholder={emptyText}
+        variant="rounded"
+        dynamic={dynamic}
+      />
     </div>
   )
 }
@@ -2909,6 +2882,9 @@ export default function ClassBatchPage() {
     useState(false)
   const [batchSearch, setBatchSearch] = useState("")
   const [batchShowEntries, setBatchShowEntries] = useState(20)
+  const [certificateSettingsBatchId, setCertificateSettingsBatchId] = useState<
+    string | null
+  >(null)
   const [formShortname, setFormShortname] = useState("")
   const [formVisible, setFormVisible] = useState<"PUBLISH" | "DRAFT">("PUBLISH")
   const [formKategoriTrack, setFormKategoriTrack] = useState<ClassTrack | "">(
@@ -2979,6 +2955,14 @@ export default function ClassBatchPage() {
   const [contentViewed, setContentViewed] = useState<Record<string, boolean>>(
     {}
   )
+  /** Centang pernyataan telah membaca materi — key `${batchId}__${materiId}__read_ack__{step}` */
+  const [materiReadAcknowledged, setMateriReadAcknowledged] = useState<
+    Record<string, boolean>
+  >({})
+  /** Langkah konten materi multi-bagian (PDF lalu video): key `${batchId}__${materiId}__cstep` */
+  const [materiContentStepIndex, setMateriContentStepIndex] = useState<
+    Record<string, number>
+  >({})
   // per-fase evaluasi for MT (keyed `${batchId}__${faseId}`)
   const [faseEvalRatings, setFaseEvalRatings] = useState<
     Record<string, number>
@@ -3115,10 +3099,6 @@ export default function ClassBatchPage() {
     [mentorRecords]
   )
 
-  function changeTrack(track: ClassTrack) {
-    setSearchParams({ track: toTrackQuery(track) }, { replace: true })
-  }
-
   function closeJourneyDrawer() {
     const nextParams = new URLSearchParams(searchParams)
     nextParams.delete("journey")
@@ -3206,7 +3186,12 @@ export default function ClassBatchPage() {
   function startEdit(batch: BatchRow) {
     setEditingId(batch.id)
     setShowBatchForm(true)
-    changeTrack(batch.track)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set("track", toTrackQuery(batch.track))
+      next.set("section", "batch-list")
+      return next
+    }, { replace: true })
     setName(batch.name)
     setBatchLabel(batch.batch)
     setAudience(batch.audience)
@@ -5022,18 +5007,19 @@ export default function ClassBatchPage() {
                       <label className="mb-1 block text-sm font-medium">
                         Fase <span className="text-red-500">*</span>
                       </label>
-                      <select
+                      <SearchableSelect
                         value={faseFormKode}
-                        onChange={(e) => setFaseFormKode(e.target.value)}
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring focus:outline-none"
-                      >
-                        <option value="">Pilih fase...</option>
-                        {MASTER_FASE_OPTIONS.map((opt) => (
-                          <option key={opt.kode} value={opt.kode}>
-                            {opt.kode} — {opt.nama}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setFaseFormKode}
+                        placeholderOption={{
+                          value: "",
+                          label: "Pilih fase...",
+                        }}
+                        placeholder="Pilih fase..."
+                        options={MASTER_FASE_OPTIONS.map((opt) => ({
+                          value: opt.kode,
+                          label: `${opt.kode} — ${opt.nama}`,
+                        }))}
+                      />
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium">
@@ -5116,18 +5102,19 @@ export default function ClassBatchPage() {
                       <label className="mb-1 block text-sm font-medium">
                         Evaluasi
                       </label>
-                      <select
+                      <SearchableSelect
                         value={faseFormEvaluasi}
-                        onChange={(e) => setFaseFormEvaluasi(e.target.value)}
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring focus:outline-none"
-                      >
-                        <option value="">Tidak ada evaluasi</option>
-                        {EVALUASI_OPTIONS.map((ev) => (
-                          <option key={ev} value={ev}>
-                            {ev}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setFaseFormEvaluasi}
+                        placeholderOption={{
+                          value: "",
+                          label: "Tidak ada evaluasi",
+                        }}
+                        placeholder="Tidak ada evaluasi"
+                        options={EVALUASI_OPTIONS.map((ev) => ({
+                          value: ev,
+                          label: ev,
+                        }))}
+                      />
                     </div>
                   </div>
                   <div className="mt-5 flex justify-end gap-2">
@@ -5315,6 +5302,7 @@ export default function ClassBatchPage() {
                           value={menteeFormMentor}
                           onChange={setMenteeFormMentor}
                           emptyText="Pilih mentor"
+                          dynamic
                           options={mentorRecords
                             .filter((mr) => mr.role === "Mentor")
                             .map((mr) => ({
@@ -5864,32 +5852,20 @@ export default function ClassBatchPage() {
                 )
               : []
             const curFaseSum = journeyFasesSum.find((f) => f.id === qFase)
-            const curMateriSum =
+            const curMateriSumRaw =
               curFaseSum?.materi.find((m) => m.id === qMateri) ?? null
-            const trimQsSum = (qs: JQuizQuestion[]) => {
-              if (
-                permissions.key !== "participant" ||
-                !assignedTrackQuery ||
-                qs.length <= ONBOARDING_PARTICIPANT_QUIZ_CAP
-              ) {
-                return qs
-              }
-              return qs.slice(0, ONBOARDING_PARTICIPANT_QUIZ_CAP)
-            }
-            const quizSourceSum = curMateriSum
-              ? curMateriSum.preTest.length > 0
-                ? curMateriSum.preTest
-                : curMateriSum.postTest
-              : []
-            const qsSum =
+            const curMateriSum = curMateriSumRaw
+              ? mergeMateriQuizFromOverlay(curMateriSumRaw)
+              : null
+            const { preQs: preQsSum, postQs: postQsSum } =
               summaryBatch && curMateriSum
-                ? trimQsSum(
-                    shuffleJourneyQuiz(
-                      quizSourceSum,
-                      `${summaryBatch.id}${curMateriSum.id}quiz`
-                    )
-                  )
-                : []
+                ? derivePrePostQuizSets(curMateriSum, summaryBatch.id, {
+                    participant: permissions.key === "participant",
+                    assignedTrackQuery: !!assignedTrackQuery,
+                  })
+                : { preQs: [] as JQuizQuestion[], postQs: [] as JQuizQuestion[] }
+            const qsSum =
+              qType === "post" ? postQsSum : preQsSum
             const aqKeySum = (type: "pre" | "post", qid: string) =>
               `${summaryBatch?.id ?? ""}__${qMateri}__${type}__${qid}`
             const scoreSum =
@@ -5901,8 +5877,11 @@ export default function ClassBatchPage() {
             const totalSum = qsSum.length
             const percentSum =
               totalSum > 0 ? Math.round((scoreSum / totalSum) * 100) : 0
+            const passPctSum =
+              qMateri !== "" ? getOverlayPassingGrade(qMateri) : 70
             const passSum =
-              totalSum > 0 && scoreSum >= Math.ceil(totalSum * 0.7)
+              totalSum > 0 &&
+              scoreSum >= Math.ceil(totalSum * (passPctSum / 100))
             const canRetakeSum = jTrackSum !== "MT/Organik" && qType === "post"
 
             if (
@@ -6002,7 +5981,8 @@ export default function ClassBatchPage() {
                           .map((row, idx) => {
                             const rowPass =
                               row.total > 0 &&
-                              row.score >= Math.ceil(row.total * 0.7)
+                              row.score >=
+                                Math.ceil(row.total * (passPctSum / 100))
                             return (
                               <li
                                 key={`${row.at}-${idx}`}
@@ -6185,6 +6165,9 @@ export default function ClassBatchPage() {
               const preKey = (mid: string) => `${batchId}__${mid}__pre`
               const postKey = (mid: string) => `${batchId}__${mid}__post`
               const ctKey = (mid: string) => `${batchId}__${mid}__content`
+              const contentStepKey = (mid: string) => `${batchId}__${mid}__cstep`
+              const readAckKey = (mid: string, step: number) =>
+                `${batchId}__${mid}__read_ack__${step}`
               const aqKey = (mid: string, type: "pre" | "post", qid: string) =>
                 `${batchId}__${mid}__${type}__${qid}`
 
@@ -6221,35 +6204,18 @@ export default function ClassBatchPage() {
 
               const curFase =
                 journeyFases.find((f) => f.id === activeFaseId) ?? null
-              const curMateri =
+              const curMateriRaw =
                 curFase?.materi.find((m) => m.id === activeMateriId) ?? null
+              const curMateri = curMateriRaw
+                ? mergeMateriQuizFromOverlay(curMateriRaw)
+                : null
 
-              const trimQsForOnboardingParticipant = (qs: JQuizQuestion[]) => {
-                if (
-                  permissions.key !== "participant" ||
-                  !assignedTrackQuery ||
-                  qs.length <= ONBOARDING_PARTICIPANT_QUIZ_CAP
-                ) {
-                  return qs
-                }
-                return qs.slice(0, ONBOARDING_PARTICIPANT_QUIZ_CAP)
-              }
-
-              // Pre & post memakai bank soal yang sama (urutan konsisten); ulang hanya untuk post test.
-              const quizSource = curMateri
-                ? curMateri.preTest.length > 0
-                  ? curMateri.preTest
-                  : curMateri.postTest
-                : []
-              const preQs = curMateri
-                ? trimQsForOnboardingParticipant(
-                    shuffleJourneyQuiz(
-                      quizSource,
-                      `${batchId}${curMateri.id}quiz`
-                    )
-                  )
-                : []
-              const postQs = preQs
+              const { preQs, postQs } = curMateri
+                ? derivePrePostQuizSets(curMateri, batchId, {
+                    participant: permissions.key === "participant",
+                    assignedTrackQuery: !!assignedTrackQuery,
+                  })
+                : { preQs: [] as JQuizQuestion[], postQs: [] as JQuizQuestion[] }
 
               const participants = buildBatchMentees(jBatch)
 
@@ -6788,12 +6754,16 @@ export default function ClassBatchPage() {
                                       Pre Test — {curMateri.title}
                                     </h4>
                                     <p className="text-xs text-muted-foreground">
-                                      Kerjakan sebelum membuka materi. Soal sama
-                                      dengan post test; tidak dapat diulang.
+                                      Kerjakan sebelum membuka materi.
+                                      {overlayTestsUseSameQuestions(curMateri.id) !==
+                                      false
+                                        ? " Soal sama dengan post test;"
+                                        : " Bank soal dapat berbeda dari post test;"}{" "}
+                                      tidak dapat diulang.
                                     </p>
                                   </div>
                                   <span className="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
-                                    Lvl 2 — Pengetahuan
+                                    {getQuizLevelLabel(curMateri.id)}
                                   </span>
                                 </div>
                                 {renderQuiz(
@@ -6805,52 +6775,148 @@ export default function ClassBatchPage() {
                                 )}
                               </>
                             ) : activeMateriView === "content" ? (
-                              <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                  <h4 className="font-semibold">
-                                    Materi — {curMateri.contentLabel}
-                                  </h4>
-                                  {isCDone(curMateri.id) && (
-                                    <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                                      <Check className="size-3" /> Selesai
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 px-6 py-10 text-center text-sm text-muted-foreground">
-                                  <p className="text-base font-medium text-foreground">
-                                    {curMateri.contentLabel}
-                                  </p>
-                                  <p className="mt-1">{curMateri.deskripsi}</p>
-                                  <p className="mt-3 text-xs">
-                                    (Konten ditampilkan di sini pada versi
-                                    produksi: slide, video, atau PDF sesuai tipe
-                                    materi)
-                                  </p>
-                                </div>
-                                {!isCDone(curMateri.id) ? (
-                                  <Button
-                                    type="button"
-                                    onClick={() => {
-                                      setContentViewed((prev) => ({
-                                        ...prev,
-                                        [ctKey(curMateri.id)]: true,
-                                      }))
-                                      setActiveMateriView("post-test")
+                              (() => {
+                                const seq = curMateri.contentSequence
+                                const stepIx =
+                                  materiContentStepIndex[
+                                    contentStepKey(curMateri.id)
+                                  ] ?? 0
+                                const stepCount = seq?.length ?? 0
+                                const showMulti = stepCount > 1
+                                const phaseLabel =
+                                  showMulti &&
+                                  curMateri.contentStepLabels?.[stepIx]
+                                    ? curMateri.contentStepLabels[stepIx]
+                                    : curMateri.contentLabel
+
+                                const goPrevStep = () => {
+                                  if (!showMulti || stepIx <= 0) return
+                                  setMateriContentStepIndex((prev) => ({
+                                    ...prev,
+                                    [contentStepKey(curMateri.id)]: stepIx - 1,
+                                  }))
+                                }
+
+                                const contentEmbed = (
+                                  <JourneyMateriDemoEmbed
+                                    materi={{
+                                      ...curMateri,
+                                      ...(showMulti && seq
+                                        ? {
+                                            demoKind: seq[stepIx],
+                                          }
+                                        : {}),
                                     }}
-                                  >
-                                    Tandai Selesai & Lanjut ke Post Test
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    type="button"
-                                    onClick={() =>
-                                      setActiveMateriView("post-test")
-                                    }
-                                  >
-                                    Lanjut ke Post Test
-                                  </Button>
-                                )}
-                              </div>
+                                  />
+                                )
+
+                                return (
+                                  <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="font-semibold">
+                                        Materi —{" "}
+                                        {showMulti ? phaseLabel : curMateri.contentLabel}
+                                      </h4>
+                                      {isCDone(curMateri.id) && (
+                                        <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                          <Check className="size-3" /> Selesai
+                                        </span>
+                                      )}
+                                    </div>
+                                    {showMulti && (
+                                      <p className="text-xs text-muted-foreground">
+                                        Langkah {stepIx + 1} dari {stepCount}
+                                        {!isCDone(curMateri.id) && (
+                                          <>
+                                            {" "}
+                                            {stepIx === 0
+                                              ? "(setelah ini video)"
+                                              : "(lalu post test)"}
+                                          </>
+                                        )}
+                                      </p>
+                                    )}
+                                    {contentEmbed}
+                                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/25 px-4 py-3 text-sm leading-snug">
+                                      <input
+                                        type="checkbox"
+                                        className="mt-1 size-4 shrink-0 rounded border-input accent-primary"
+                                        checked={
+                                          materiReadAcknowledged[
+                                            readAckKey(
+                                              curMateri.id,
+                                              stepIx
+                                            )
+                                          ] ?? false
+                                        }
+                                        onChange={(e) =>
+                                          setMateriReadAcknowledged((prev) => ({
+                                            ...prev,
+                                            [readAckKey(
+                                              curMateri.id,
+                                              stepIx
+                                            )]: e.target.checked,
+                                          }))
+                                        }
+                                      />
+                                      <span className="text-foreground">
+                                        Saya menyatakan telah membaca dan
+                                        memahami seluruh isi materi ini.
+                                      </span>
+                                    </label>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {showMulti && stepIx > 0 && (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          onClick={goPrevStep}
+                                        >
+                                          Step sebelumnya
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        disabled={
+                                          !(
+                                            materiReadAcknowledged[
+                                              readAckKey(
+                                                curMateri.id,
+                                                stepIx
+                                              )
+                                            ] ?? false
+                                          )
+                                        }
+                                        onClick={() => {
+                                          if (
+                                            showMulti &&
+                                            seq &&
+                                            stepIx < seq.length - 1
+                                          ) {
+                                            setMateriContentStepIndex(
+                                              (prev) => ({
+                                                ...prev,
+                                                [contentStepKey(
+                                                  curMateri.id
+                                                )]: stepIx + 1,
+                                              })
+                                            )
+                                            return
+                                          }
+                                          if (!isCDone(curMateri.id)) {
+                                            setContentViewed((prev) => ({
+                                              ...prev,
+                                              [ctKey(curMateri.id)]: true,
+                                            }))
+                                          }
+                                          setActiveMateriView("post-test")
+                                        }}
+                                      >
+                                        Next Step
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )
+                              })()
                             ) : (
                               <>
                                 <div className="mb-4 flex items-center justify-between">
@@ -6866,7 +6932,7 @@ export default function ClassBatchPage() {
                                     </p>
                                   </div>
                                   <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                                    Lvl 2 — Pengetahuan
+                                    {getQuizLevelLabel(curMateri.id)}
                                   </span>
                                 </div>
                                 {renderQuiz(
@@ -6900,6 +6966,7 @@ export default function ClassBatchPage() {
                     jTrack !== "MT/Organik" &&
                     permissions.key === "participant" && (
                       <JourneyCertificateSection
+                        batchId={jBatch.id}
                         batchName={jBatch.name}
                         batch={jBatch.batch}
                         period={jBatch.period}
@@ -7129,6 +7196,7 @@ export default function ClassBatchPage() {
 
               {permissions.key === "participant" && (
                 <JourneyCertificateSection
+                  batchId={selectedJourneyBatch.id}
                   batchName={selectedJourneyBatch.name}
                   batch={selectedJourneyBatch.batch}
                   period={selectedJourneyBatch.period}
@@ -7451,9 +7519,9 @@ export default function ClassBatchPage() {
                 <>
                   <div className="rounded-xl border bg-card p-5 shadow-sm">
                     <p className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
-                      My Classes - {activeTrack}
+                      My Courses — {activeTrack}
                     </p>
-                    <h2 className="mt-1 text-2xl font-semibold">Kelas Saya</h2>
+                    <h2 className="mt-1 text-2xl font-semibold">Course saya</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {activeJourney.description}
                     </p>
@@ -7890,12 +7958,28 @@ export default function ClassBatchPage() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <button
-                              type="button"
-                              className="cursor-pointer rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-blue-700"
-                            >
-                              Unduh
-                            </button>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-[11px]"
+                                title="Upload template, tanda tangan, nama & jabatan pejabat, judul sertifikat"
+                                onClick={() =>
+                                  setCertificateSettingsBatchId(batch.id)
+                                }
+                              >
+                                Pengaturan sertifikat
+                              </Button>
+                              {isCertificateConfigured(batch.id) ? (
+                                <span
+                                  className="inline-flex shrink-0 items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
+                                  title="Konfigurasi tersimpan (mock)"
+                                >
+                                  Aktif
+                                </span>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex items-center justify-center gap-2">
@@ -8142,6 +8226,7 @@ export default function ClassBatchPage() {
                       value={selectedMentors}
                       onChange={setSelectedMentors}
                       emptyText="Pilih mentor"
+                      dynamic
                     />
                     <MultiSelectField
                       id="co-mentor"
@@ -8150,6 +8235,7 @@ export default function ClassBatchPage() {
                       value={selectedCoMentors}
                       onChange={setSelectedCoMentors}
                       emptyText="Pilih co-mentor"
+                      dynamic
                     />
                   </div>
 
@@ -8522,6 +8608,18 @@ export default function ClassBatchPage() {
           </div>
         </section>
       )}
+
+      {certificateSettingsBatchId ? (
+        <CertificateSettingsModal
+          open={certificateSettingsBatchId !== null}
+          onClose={() => setCertificateSettingsBatchId(null)}
+          batchId={certificateSettingsBatchId}
+          batchDisplayName={
+            batches.find((b) => b.id === certificateSettingsBatchId)?.name ??
+            certificateSettingsBatchId
+          }
+        />
+      ) : null}
 
       {showJourneyCompletionNotice ? (
         <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/45 px-4">

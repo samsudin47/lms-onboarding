@@ -23,6 +23,7 @@ import {
   getStoredDemoUser,
 } from "@/lib/demo-access"
 import { ONBOARDING_KELAS_OPTIONS } from "@/lib/onboarding-kelas-filter"
+import { getParticipantCourseDashboardStats } from "@/lib/participant-dashboard-course-stats"
 import { getParticipantMyClassesHref } from "@/lib/participant-class-deeplink"
 
 const adminStats = [
@@ -99,18 +100,6 @@ const batchBestOf3 = [
     ],
   },
 ] as const
-
-const participantClassSummary = {
-  pkwt: { total: 4, completed: 1, onProgress: 1, passed: 1, unpassed: 0 },
-  "pro-hire": { total: 4, completed: 1, onProgress: 1, passed: 1, unpassed: 0 },
-  "mt-organik": {
-    total: 4,
-    completed: 1,
-    onProgress: 1,
-    passed: 1,
-    unpassed: 0,
-  },
-} as const
 
 /** Top 3 + contoh ranking pengguna (dashboard onboarding). */
 const onboardingTopPerformersRow = [
@@ -312,11 +301,16 @@ export default function DashboardPage() {
   const myClassHref = assignedTrack
     ? getParticipantMyClassesHref(assignedTrack)
     : "/class?section=overview"
-  const summaryKey = assignedTrack ?? "pkwt"
-  const participantSummary = participantClassSummary[summaryKey]
-  const completionPercent = Math.round(
-    (participantSummary.completed / participantSummary.total) * 100
+  const participantSummary = useMemo(
+    () => getParticipantCourseDashboardStats(assignedTrack),
+    [assignedTrack]
   )
+  const completionPercent =
+    participantSummary.total > 0
+      ? Math.round(
+          (participantSummary.completed / participantSummary.total) * 100
+        )
+      : 0
 
   if (permissions.key === "participant") {
     return (
@@ -330,12 +324,12 @@ export default function DashboardPage() {
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
             Akses peserta onboarding dibatasi ke <strong>Dashboard</strong> dan
-            <strong> My Class</strong> sesuai track yang ditetapkan.
+            <strong> My Course</strong> sesuai track yang ditetapkan.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button asChild size="sm">
               <Link to={myClassHref}>
-                Buka My Classes
+                Buka My Courses
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -345,12 +339,12 @@ export default function DashboardPage() {
         <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
             <div className="rounded-xl border border-blue-200/70 bg-linear-to-br from-blue-50 to-indigo-50 p-4 shadow-sm">
-              <p className="text-sm font-medium text-blue-700">Class</p>
+              <p className="text-sm font-medium text-blue-700">Course</p>
               <p className="mt-2 text-2xl font-semibold text-blue-950">
                 {participantSummary.total}
               </p>
               <p className="mt-1 text-xs text-blue-700/80">
-                class yang diikuti pada track{" "}
+                course onboarding pada track{" "}
                 {assignedTrack === "pro-hire"
                   ? "Pro Hire"
                   : assignedTrack === "mt-organik"
@@ -365,7 +359,7 @@ export default function DashboardPage() {
                 {participantSummary.completed}
               </p>
               <p className="mt-1 text-xs text-violet-700/80">
-                class yang sudah selesai.
+                course yang sudah selesai.
               </p>
             </div>
 
@@ -375,7 +369,7 @@ export default function DashboardPage() {
                 {participantSummary.onProgress}
               </p>
               <p className="mt-1 text-xs text-cyan-700/80">
-                class yang sedang berjalan.
+                course yang sedang berjalan.
               </p>
             </div>
 
@@ -389,7 +383,7 @@ export default function DashboardPage() {
                   {participantSummary.unpassed}
                 </p>
                 <p className="mt-1 text-xs text-rose-500">
-                  class yang belum lulus.
+                  course yang belum lulus.
                 </p>
               </div>
 
@@ -402,7 +396,7 @@ export default function DashboardPage() {
                   {participantSummary.passed}
                 </p>
                 <p className="mt-1 text-xs text-blue-600">
-                  class yang sudah lulus.
+                  course yang sudah lulus.
                 </p>
               </div>
             </div>

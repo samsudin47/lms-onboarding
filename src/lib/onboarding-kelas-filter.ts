@@ -6,3 +6,10 @@ export const ONBOARDING_KELAS_OPTIONS = [
 ] as const
 
 export type OnboardingKelasOption = (typeof ONBOARDING_KELAS_OPTIONS)[number]
+
+/**
+ * Leaderboard: saat filter «Semua kelas», hanya peserta kelas ini yang
+ * ditampilkan (tingkat tertinggi untuk mock — MT/Organik).
+ */
+export const LEADERBOARD_TOP_TIER_KELAS =
+  "Onboarding MT/Organik Batch 2" satisfies OnboardingKelasOption

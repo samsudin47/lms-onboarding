@@ -18,88 +18,82 @@ import {
 import { cn } from "@/lib/utils"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type BagianRow = {
+type KategoriPelatihanRow = {
   id: string
   kode: string
   nama: string
   deskripsi: string
-  bobotPersen: number
   urutan: number
   aktif: boolean
 }
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
-const initialBagian: BagianRow[] = [
+const initialKategoriPelatihan: KategoriPelatihanRow[] = [
   {
-    id: "bag-01",
-    kode: "B01",
-    nama: "Pengetahuan & Pemahaman",
+    id: "kat-01",
+    kode: "K01",
+    nama: "Teknis & Operasional",
     deskripsi:
-      "Penilaian pemahaman peserta terhadap materi onboarding dan nilai perusahaan.",
-    bobotPersen: 25,
+      "Materi keterampilan teknis, prosedur kerja, dan penggunaan tools sesuai fungsi.",
     urutan: 1,
     aktif: true,
   },
   {
-    id: "bag-02",
-    kode: "B02",
-    nama: "Keterampilan Teknis",
-    deskripsi: "Penilaian kompetensi teknis sesuai kebutuhan jabatan peserta.",
-    bobotPersen: 30,
+    id: "kat-02",
+    kode: "K02",
+    nama: "Kepemimpinan & Manajemen",
+    deskripsi:
+      "Pengembangan komunikasi, pengambilan keputusan, dan koordinasi tim.",
     urutan: 2,
     aktif: true,
   },
   {
-    id: "bag-03",
-    kode: "B03",
-    nama: "Sikap & Perilaku",
+    id: "kat-03",
+    kode: "K03",
+    nama: "Budaya & Kepatuhan",
     deskripsi:
-      "Penilaian kedisiplinan, etika kerja, dan kesesuaian budaya organisasi.",
-    bobotPersen: 20,
+      "Nilai perusahaan, etika profesional, K3, dan kepatuhan regulasi.",
     urutan: 3,
     aktif: true,
   },
   {
-    id: "bag-04",
-    kode: "B04",
-    nama: "Project & Implementasi",
+    id: "kat-04",
+    kode: "K04",
+    nama: "Soft Skills & Pengembangan Diri",
     deskripsi:
-      "Penilaian hasil project nyata yang dikerjakan selama masa onboarding.",
-    bobotPersen: 25,
+      "Komunikasi, adaptasi kerja sama lintas unit, serta literasi digital.",
     urutan: 4,
+    aktif: true,
+  },
+  {
+    id: "kat-05",
+    kode: "K05",
+    nama: "Wajib Tahunan",
+    deskripsi:
+      "Pelatihan wajib periode tertentu (misalnya antisuap, penyamaan pemahaman).",
+    urutan: 5,
     aktif: true,
   },
 ]
 
-function nextId(rows: BagianRow[]): string {
+function nextId(rows: KategoriPelatihanRow[]): string {
   const nums = rows
-    .map((r) => parseInt(r.id.replace("bag-", ""), 10))
+    .map((r) => parseInt(r.id.replace("kat-", ""), 10))
     .filter((n) => !isNaN(n))
   const next = nums.length ? Math.max(...nums) + 1 : 1
-  return `bag-${String(next).padStart(2, "0")}`
+  return `kat-${String(next).padStart(2, "0")}`
 }
 
-function nextUrutan(rows: BagianRow[]): number {
+function nextUrutan(rows: KategoriPelatihanRow[]): number {
   return rows.length ? Math.max(...rows.map((r) => r.urutan)) + 1 : 1
 }
 
-function totalBobot(rows: BagianRow[]): number {
-  return rows.reduce((sum, r) => sum + r.bobotPersen, 0)
-}
-
-function parseBobotPersen(raw: string): number {
-  const normalized = raw.trim().replace(",", ".").replace(/%/g, "").trim()
-  const n = Number.parseFloat(normalized)
-  if (Number.isNaN(n) || n < 0) return 0
-  return Math.min(100, Math.round(n * 100) / 100)
-}
-
-function importBagianFromSheetRows(
+function importKategoriFromSheetRows(
   rows: Record<string, unknown>[],
-  current: BagianRow[]
-): { added: BagianRow[]; skipped: number } {
+  current: KategoriPelatihanRow[]
+): { added: KategoriPelatihanRow[]; skipped: number } {
   const kodeSeen = new Set(current.map((r) => r.kode.toUpperCase()))
-  const added: BagianRow[] = []
+  const added: KategoriPelatihanRow[] = []
   let acc = [...current]
   let skipped = 0
 
@@ -107,10 +101,9 @@ function importBagianFromSheetRows(
     const kode = cellByAliases(row, ["kode", "code"]).trim().toUpperCase()
     const nama = cellByAliases(row, [
       "nama",
-      "namabagian",
-      "namabaginevaluasi",
-      "nama bagian",
-      "nama bagian evaluasi",
+      "namakategori",
+      "nama kategori",
+      "kategori",
       "title",
     ]).trim()
     if (!kode || !nama) {
@@ -128,31 +121,19 @@ function importBagianFromSheetRows(
       "description",
       "keterangan",
     ]).trim()
-    const bobotRaw = cellByAliases(row, [
-      "bobot",
-      "bobotpersen",
-      "bobot%",
-      "bobot (%)",
-      "persen",
-      "weight",
-    ])
-    const bobotPersen = bobotRaw ? parseBobotPersen(bobotRaw) : 0
-
     const urutanRaw = cellByAliases(row, ["urutan", "order", "no"])
     const urutanParsed = Number.parseInt(urutanRaw, 10)
     const urutan =
       !Number.isNaN(urutanParsed) && urutanParsed >= 1
         ? urutanParsed
         : nextUrutan(acc)
-
     const aktifRaw = cellByAliases(row, ["aktif", "status", "active"])
 
-    const newRow: BagianRow = {
+    const newRow: KategoriPelatihanRow = {
       id: nextId(acc),
       kode,
       nama,
       deskripsi,
-      bobotPersen,
       urutan,
       aktif: parseAktifCell(aktifRaw),
     }
@@ -164,8 +145,10 @@ function importBagianFromSheetRows(
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function MasterBagianEvaluasiPage() {
-  const [bagian, setBagian] = useState<BagianRow[]>(initialBagian)
+export default function MasterKategoriPelatihanPage() {
+  const [kategoriPelatihan, setKategoriPelatihan] = useState<
+    KategoriPelatihanRow[]
+  >(initialKategoriPelatihan)
   const [search, setSearch] = useState("")
   const [showEntries, setShowEntries] = useState(20)
   const excelImportInputRef = useRef<HTMLInputElement>(null)
@@ -176,43 +159,39 @@ export default function MasterBagianEvaluasiPage() {
   const [fKode, setFKode] = useState("")
   const [fNama, setFNama] = useState("")
   const [fDeskripsi, setFDeskripsi] = useState("")
-  const [fBobot, setFBobot] = useState(0)
   const [fUrutan, setFUrutan] = useState(1)
   const [fAktif, setFAktif] = useState(true)
 
   // Delete
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
-  const filtered = bagian
+  const filtered = kategoriPelatihan
     .filter(
-      (b) =>
+      (f) =>
         !search ||
-        b.nama.toLowerCase().includes(search.toLowerCase()) ||
-        b.kode.toLowerCase().includes(search.toLowerCase()) ||
-        b.deskripsi.toLowerCase().includes(search.toLowerCase())
+        f.nama.toLowerCase().includes(search.toLowerCase()) ||
+        f.kode.toLowerCase().includes(search.toLowerCase()) ||
+        f.deskripsi.toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => a.urutan - b.urutan)
 
   const displayed = filtered.slice(0, showEntries)
-  const totalBobot100 = totalBobot(bagian)
 
   function openAdd() {
     setEditingId(null)
     setFKode("")
     setFNama("")
     setFDeskripsi("")
-    setFBobot(0)
-    setFUrutan(nextUrutan(bagian))
+    setFUrutan(nextUrutan(kategoriPelatihan))
     setFAktif(true)
     setShowModal(true)
   }
 
-  function openEdit(row: BagianRow) {
+  function openEdit(row: KategoriPelatihanRow) {
     setEditingId(row.id)
     setFKode(row.kode)
     setFNama(row.nama)
     setFDeskripsi(row.deskripsi)
-    setFBobot(row.bobotPersen)
     setFUrutan(row.urutan)
     setFAktif(row.aktif)
     setShowModal(true)
@@ -220,31 +199,30 @@ export default function MasterBagianEvaluasiPage() {
 
   function handleSave() {
     if (!fNama.trim() || !fKode.trim()) return
-    const row: BagianRow = {
-      id: editingId ?? nextId(bagian),
+    const row: KategoriPelatihanRow = {
+      id: editingId ?? nextId(kategoriPelatihan),
       kode: fKode.trim().toUpperCase(),
       nama: fNama.trim(),
       deskripsi: fDeskripsi.trim(),
-      bobotPersen: fBobot,
       urutan: fUrutan,
       aktif: fAktif,
     }
-    setBagian((prev) =>
+    setKategoriPelatihan((prev) =>
       editingId
-        ? prev.map((b) => (b.id === editingId ? row : b))
+        ? prev.map((f) => (f.id === editingId ? row : f))
         : [...prev, row]
     )
     setShowModal(false)
   }
 
   function toggleAktif(id: string) {
-    setBagian((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, aktif: !b.aktif } : b))
+    setKategoriPelatihan((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, aktif: !f.aktif } : f))
     )
   }
 
   function handleDelete(id: string) {
-    setBagian((prev) => prev.filter((b) => b.id !== id))
+    setKategoriPelatihan((prev) => prev.filter((f) => f.id !== id))
     setDeleteTargetId(null)
   }
 
@@ -257,16 +235,19 @@ export default function MasterBagianEvaluasiPage() {
     try {
       const buf = await file.arrayBuffer()
       const rows = sheetToDataRows(buf)
-      const { added, skipped } = importBagianFromSheetRows(rows, bagian)
+      const { added, skipped } = importKategoriFromSheetRows(
+        rows,
+        kategoriPelatihan
+      )
       if (added.length === 0) {
         window.alert(
-          "Tidak ada baris baru. Pastikan kolom Kode dan Nama Bagian terisi; kode duplikat dilewati. Baris pertama = header."
+          "Tidak ada baris baru. Pastikan kolom Kode dan Nama (Kategori) terisi; kode duplikat dilewati. Baris pertama = header."
         )
         return
       }
-      setBagian((prev) => [...prev, ...added])
+      setKategoriPelatihan((prev) => [...prev, ...added])
       window.alert(
-        `Berhasil mengimpor ${added.length} bagian evaluasi.${skipped > 0 ? ` ${skipped} baris dilewati.` : ""}`
+        `Berhasil mengimpor ${added.length} kategori.${skipped > 0 ? ` ${skipped} baris dilewati.` : ""}`
       )
     } catch {
       window.alert(
@@ -282,32 +263,11 @@ export default function MasterBagianEvaluasiPage() {
         <p className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
           Master Data
         </p>
-        <h2 className="mt-1 text-2xl font-semibold">Bagian Evaluasi</h2>
+        <h2 className="mt-1 text-2xl font-semibold">Kategori Pelatihan</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Kelola bagian-bagian penilaian evaluasi yang dapat di-assign ke
-          evaluasi sebagai parent dari poin-poin evaluasi.
+          Kelola kategori pelatihan sebagai label untuk mengorganisir modul,
+          materi, dan penjadwalan di LMS onboarding.
         </p>
-      </div>
-
-      {/* Total bobot warning */}
-      <div
-        className={cn(
-          "flex items-center justify-between rounded-xl border px-5 py-3 text-sm",
-          totalBobot100 === 100
-            ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-            : "border-amber-300 bg-amber-50 text-amber-700"
-        )}
-      >
-        <span>
-          Total bobot semua bagian:{" "}
-          <span className="font-bold">{totalBobot100}%</span>
-        </span>
-        {totalBobot100 !== 100 && (
-          <span className="text-xs">Pastikan total bobot mencapai 100%</span>
-        )}
-        {totalBobot100 === 100 && (
-          <span className="text-xs font-medium">Total bobot sudah sesuai</span>
-        )}
       </div>
 
       {/* Controls */}
@@ -355,7 +315,7 @@ export default function MasterBagianEvaluasiPage() {
           </Button>
           <Button type="button" className="h-9 rounded-md" onClick={openAdd}>
             <Plus className="size-4" />
-            Tambah Bagian
+            Tambah Kategori
           </Button>
         </div>
       </div>
@@ -373,13 +333,10 @@ export default function MasterBagianEvaluasiPage() {
                   Kode
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
-                  Nama Bagian
+                  Nama Kategori
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                   Deskripsi
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold tracking-wide uppercase">
-                  Bobot (%)
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold tracking-wide uppercase">
                   Urutan
@@ -396,10 +353,10 @@ export default function MasterBagianEvaluasiPage() {
               {displayed.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="py-10 text-center text-muted-foreground"
                   >
-                    Tidak ada bagian evaluasi ditemukan.
+                    Tidak ada kategori pelatihan ditemukan.
                   </td>
                 </tr>
               ) : (
@@ -415,25 +372,13 @@ export default function MasterBagianEvaluasiPage() {
                       {index + 1}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 font-mono text-xs font-semibold text-violet-700">
+                      <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 font-mono text-xs font-semibold text-blue-700">
                         {row.kode}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 font-medium">{row.nama}</td>
                     <td className="max-w-xs truncate px-4 py-3.5 text-muted-foreground">
                       {row.deskripsi}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <span
-                        className={cn(
-                          "inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-bold",
-                          row.bobotPersen >= 25
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-slate-100 text-slate-600"
-                        )}
-                      >
-                        {row.bobotPersen}%
-                      </span>
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <span className="inline-flex size-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
@@ -483,7 +428,7 @@ export default function MasterBagianEvaluasiPage() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Menampilkan {displayed.length} dari {filtered.length} bagian evaluasi
+        Menampilkan {displayed.length} dari {filtered.length} kategori pelatihan
       </p>
 
       {/* Modal Tambah/Edit */}
@@ -491,10 +436,10 @@ export default function MasterBagianEvaluasiPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl">
             <h3 className="mb-4 text-lg font-semibold">
-              {editingId ? "Edit Bagian Evaluasi" : "Tambah Bagian Evaluasi"}
+              {editingId ? "Edit Kategori" : "Tambah Kategori"}
             </h3>
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-sm font-medium">
                     Kode <span className="text-red-500">*</span>
@@ -502,20 +447,8 @@ export default function MasterBagianEvaluasiPage() {
                   <Input
                     value={fKode}
                     onChange={(e) => setFKode(e.target.value)}
-                    placeholder="B01"
+                    placeholder="K01"
                     className="font-mono uppercase"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Bobot (%)
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={fBobot}
-                    onChange={(e) => setFBobot(Number(e.target.value))}
                   />
                 </div>
                 <div>
@@ -532,12 +465,12 @@ export default function MasterBagianEvaluasiPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">
-                  Nama Bagian <span className="text-red-500">*</span>
+                  Nama Kategori <span className="text-red-500">*</span>
                 </label>
                 <Input
                   value={fNama}
                   onChange={(e) => setFNama(e.target.value)}
-                  placeholder="Contoh: Pengetahuan & Pemahaman"
+                  placeholder="Contoh: Teknis & Operasional"
                 />
               </div>
               <div>
@@ -547,7 +480,7 @@ export default function MasterBagianEvaluasiPage() {
                 <Input
                   value={fDeskripsi}
                   onChange={(e) => setFDeskripsi(e.target.value)}
-                  placeholder="Deskripsi singkat bagian evaluasi ini"
+                  placeholder="Deskripsi singkat kategori ini"
                 />
               </div>
               <div className="flex items-center gap-3">
@@ -586,11 +519,10 @@ export default function MasterBagianEvaluasiPage() {
       {deleteTargetId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold">
-              Hapus Bagian Evaluasi?
-            </h3>
+            <h3 className="mb-2 text-lg font-semibold">Hapus Kategori?</h3>
             <p className="text-sm text-muted-foreground">
-              Data bagian ini akan dihapus dan tidak dapat dikembalikan.
+              Data kategori pelatihan ini akan dihapus dan tidak dapat
+              dikembalikan.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <Button

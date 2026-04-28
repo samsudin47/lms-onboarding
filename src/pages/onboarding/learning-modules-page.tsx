@@ -59,6 +59,15 @@ type KategoriPelatihan =
   | "Teknik"
   | "Kepatuhan"
 
+type CourseMaterialItem = {
+  id: string
+  title: string
+  type: ContentType
+  description: string
+  link: string
+  deadline: string
+}
+
 type Course = {
   id: string
   title: string
@@ -66,8 +75,12 @@ type Course = {
   category: CourseCategory
   jabatan: JabatanKey[]
   kategoriPelatihan: KategoriPelatihan[]
+  /** Materi per course (admin) */
+  materials: CourseMaterialItem[]
   preTest: string
   postTest: string
+  /** true: satu input mengisi pre & post; false: boleh beda */
+  testsUseSameQuestions: boolean
   published: boolean
 }
 
@@ -109,9 +122,11 @@ const seedCourses: Course[] = [
     category: "Onboarding",
     jabatan: ["PKWT", "Pro Hire", "MT"],
     kategoriPelatihan: ["SDM", "Umum"],
+    materials: [],
     preTest: "Kuis 10 soal pilihan ganda — pemahaman awal budaya kerja",
     postTest:
       "Essay refleksi singkat — implementasi nilai AKHLAK di tempat kerja",
+    testsUseSameQuestions: false,
     published: true,
   },
   {
@@ -122,8 +137,10 @@ const seedCourses: Course[] = [
     category: "Onboarding",
     jabatan: ["PKWT", "Pro Hire", "MT", "Staff"],
     kategoriPelatihan: ["IT"],
+    materials: [],
     preTest: "Kuis 5 soal — identifikasi tools yang sudah diketahui",
     postTest: "Praktik singkat — demonstrasi penggunaan aplikasi internal",
+    testsUseSameQuestions: false,
     published: true,
   },
   {
@@ -134,8 +151,10 @@ const seedCourses: Course[] = [
     category: "LMS",
     jabatan: ["Staff", "Kaur", "Kasek", "Kadep"],
     kategoriPelatihan: ["Hukum", "Kepatuhan"],
+    materials: [],
     preTest: "Kuis 10 soal — pemahaman regulasi dasar",
     postTest: "",
+    testsUseSameQuestions: false,
     published: false,
   },
   {
@@ -146,8 +165,10 @@ const seedCourses: Course[] = [
     category: "LMS",
     jabatan: ["Kadep", "Kadiv"],
     kategoriPelatihan: ["Keuangan"],
+    materials: [],
     preTest: "",
     postTest: "",
+    testsUseSameQuestions: true,
     published: false,
   },
 ]
@@ -301,6 +322,9 @@ export default function LearningModulesPage() {
   const [fKategori, setFKategori] = useState<KategoriPelatihan[]>([])
   const [fPreTest, setFPreTest] = useState("")
   const [fPostTest, setFPostTest] = useState("")
+  /** Form course: satu field pre+post jika true */
+  const [fTestsSame, setFTestsSame] = useState(true)
+  const [fTestShared, setFTestShared] = useState("")
 
   const selectedSection = searchParams.get("section") ?? ""
   const focusLabel = sectionLabels[selectedSection]
@@ -331,6 +355,8 @@ export default function LearningModulesPage() {
     setFCategory("Onboarding")
     setFJabatan([])
     setFKategori([])
+    setFTestsSame(true)
+    setFTestShared("")
     setFPreTest("")
     setFPostTest("")
     setShowForm(true)
@@ -343,37 +369,45 @@ export default function LearningModulesPage() {
     setFCategory(c.category)
     setFJabatan(c.jabatan)
     setFKategori(c.kategoriPelatihan)
-    setFPreTest(c.preTest)
-    setFPostTest(c.postTest)
+    const pt = c.preTest.trim()
+    const po = c.postTest.trim()
+    if (pt === po) {
+      setFTestsSame(true)
+      setFTestShared(c.preTest)
+      setFPreTest("")
+      setFPostTest("")
+    } else {
+      setFTestsSame(false)
+      setFPreTest(c.preTest)
+      setFPostTest(c.postTest)
+      setFTestShared("")
+    }
     setShowForm(true)
   }
 
   function handleCourseSave(e: React.FormEvent) {
     e.preventDefault()
     if (!fTitle.trim()) return
-    const base: Omit<Course, "id" | "published"> = {
+    const preT = fTestsSame ? fTestShared.trim() : fPreTest.trim()
+    const postT = fTestsSame ? fTestShared.trim() : fPostTest.trim()
+    const baseFields = {
       title: fTitle.trim(),
       description: fDescription.trim(),
       category: fCategory,
       jabatan: fJabatan,
       kategoriPelatihan: fKategori,
-      preTest: fPreTest.trim(),
-      postTest: fPostTest.trim(),
+      preTest: preT,
+      postTest: postT,
+      testsUseSameQuestions: fTestsSame,
     }
     setCourses((prev) => {
       if (editingCourseId) {
         return prev.map((c) =>
-          c.id === editingCourseId ? { ...c, ...base } : c
+          c.id === editingCourseId ? { ...c, ...baseFields } : c
         )
       }
-      return [
-        ...prev,
-        {
-          id: `crs-${crypto.randomUUID().slice(0, 6)}`,
-          published: false,
-          ...base,
-        },
-      ]
+      const id = `crs-${crypto.randomUUID().slice(0, 6)}`
+      return [...prev, { id, published: false, materials: [], ...baseFields }]
     })
     setShowForm(false)
   }
@@ -472,6 +506,10 @@ export default function LearningModulesPage() {
                 const hasPreTest = !!course.preTest.trim()
                 const hasPostTest = !!course.postTest.trim()
                 const canPublish = hasPreTest && hasPostTest
+                const sameTestCombined =
+                  course.testsUseSameQuestions &&
+                  course.preTest.trim() !== "" &&
+                  course.preTest.trim() === course.postTest.trim()
                 return (
                   <div
                     key={course.id}
@@ -543,44 +581,60 @@ export default function LearningModulesPage() {
 
                     {/* Pre/Post test status */}
                     <div className="mt-3 flex flex-wrap gap-3">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        {hasPreTest ? (
+                      {sameTestCombined ? (
+                        <div className="flex items-center gap-1.5 text-xs">
                           <CheckCircle2 className="size-3.5 text-emerald-500" />
-                        ) : (
-                          <XCircle className="size-3.5 text-red-400" />
-                        )}
-                        <span
-                          className={
-                            hasPreTest ? "text-emerald-700" : "text-red-500"
-                          }
-                        >
-                          Pre Test
-                        </span>
-                        {hasPreTest && (
+                          <span className="font-medium text-emerald-700">
+                            Pre &amp; Post test (soal sama)
+                          </span>
                           <span className="text-muted-foreground">
                             — {course.preTest}
                           </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs">
-                        {hasPostTest ? (
-                          <CheckCircle2 className="size-3.5 text-emerald-500" />
-                        ) : (
-                          <XCircle className="size-3.5 text-red-400" />
-                        )}
-                        <span
-                          className={
-                            hasPostTest ? "text-emerald-700" : "text-red-500"
-                          }
-                        >
-                          Post Test
-                        </span>
-                        {hasPostTest && (
-                          <span className="text-muted-foreground">
-                            — {course.postTest}
-                          </span>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5 text-xs">
+                            {hasPreTest ? (
+                              <CheckCircle2 className="size-3.5 text-emerald-500" />
+                            ) : (
+                              <XCircle className="size-3.5 text-red-400" />
+                            )}
+                            <span
+                              className={
+                                hasPreTest ? "text-emerald-700" : "text-red-500"
+                              }
+                            >
+                              Pre Test
+                            </span>
+                            {hasPreTest && (
+                              <span className="text-muted-foreground">
+                                — {course.preTest}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs">
+                            {hasPostTest ? (
+                              <CheckCircle2 className="size-3.5 text-emerald-500" />
+                            ) : (
+                              <XCircle className="size-3.5 text-red-400" />
+                            )}
+                            <span
+                              className={
+                                hasPostTest
+                                  ? "text-emerald-700"
+                                  : "text-red-500"
+                              }
+                            >
+                              Post Test
+                            </span>
+                            {hasPostTest && (
+                              <span className="text-muted-foreground">
+                                — {course.postTest}
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {!canPublish && (
@@ -591,7 +645,7 @@ export default function LearningModulesPage() {
                     )}
 
                     {/* Actions */}
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
                         size="sm"
@@ -701,33 +755,84 @@ export default function LearningModulesPage() {
                   onChange={setFKategori}
                 />
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Pre Test <span className="text-red-500">*</span>
+                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border-input accent-primary"
+                      checked={fTestsSame}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        if (checked) {
+                          const merged =
+                            fTestShared.trim() ||
+                            fPreTest.trim() ||
+                            fPostTest.trim()
+                          setFTestShared(merged)
+                          setFPreTest("")
+                          setFPostTest("")
+                        } else {
+                          const base =
+                            fTestShared.trim() ||
+                            fPreTest.trim() ||
+                            fPostTest.trim()
+                          setFPreTest(base)
+                          setFPostTest(base)
+                          setFTestShared("")
+                        }
+                        setFTestsSame(checked)
+                      }}
+                    />
+                    Pre dan post test memakai deskripsi/soal yang sama (satu isian)
                   </label>
-                  <Input
-                    value={fPreTest}
-                    onChange={(e) => setFPreTest(e.target.value)}
-                    placeholder="Contoh: Kuis 10 soal pilihan ganda"
-                  />
+
+                  {fTestsSame ? (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium">
+                        Pre &amp; Post test{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={fTestShared}
+                        onChange={(e) => setFTestShared(e.target.value)}
+                        className="min-h-24 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                        placeholder="Contoh: Bank 25 soal pilihan ganda — dipakai untuk pre dan post."
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium">
+                          Pre Test <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          value={fPreTest}
+                          onChange={(e) => setFPreTest(e.target.value)}
+                          placeholder="Contoh: Kuis 10 soal pilihan ganda"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium">
+                          Post Test <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          value={fPostTest}
+                          onChange={(e) => setFPostTest(e.target.value)}
+                          placeholder="Contoh: Essay refleksi singkat"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Post Test <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    value={fPostTest}
-                    onChange={(e) => setFPostTest(e.target.value)}
-                    placeholder="Contoh: Essay refleksi singkat"
-                  />
-                </div>
-
-                {!(fPreTest.trim() && fPostTest.trim()) && (
+                {!(
+                  (fTestsSame ? fTestShared.trim() : fPreTest.trim()) &&
+                  (fTestsSame ? fTestShared.trim() : fPostTest.trim())
+                ) ? (
                   <p className="text-[11px] text-amber-600">
                     Isi Pre Test dan Post Test agar course bisa dipublish.
                   </p>
-                )}
+                ) : null}
 
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1">

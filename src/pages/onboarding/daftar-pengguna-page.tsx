@@ -3,6 +3,7 @@ import { PencilLine, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/searchable-select"
 import { cn } from "@/lib/utils"
 
 // ─────────────────────────────────────────
@@ -424,20 +425,19 @@ export default function DaftarPenggunaPage() {
           <label className="text-sm font-medium whitespace-nowrap text-muted-foreground">
             Filter Role
           </label>
-          <select
+          <SearchableSelect
             value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value as RoleKey | "All")
+            onChange={(v) => {
+              setRoleFilter(v as RoleKey | "All")
               setSearch("")
             }}
-            className="rounded-md border bg-background px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-          >
-            {roleCounts.map(({ role }) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
+            options={roleCounts.map(({ role }) => ({
+              value: role,
+              label: role,
+            }))}
+            dynamic
+            selectClassName="rounded-md border bg-background px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+          />
         </div>
 
         <div className="space-y-4 p-4">
@@ -618,17 +618,13 @@ export default function DaftarPenggunaPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Role</label>
-                <select
+                <SearchableSelect
                   value={formRole}
-                  onChange={(e) => setFormRole(e.target.value as RoleKey)}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-                >
-                  {ALL_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setFormRole(v as RoleKey)}
+                  options={ALL_ROLES.map((r) => ({ value: r, label: r }))}
+                  className="w-full"
+                  selectClassName="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">

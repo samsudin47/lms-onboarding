@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react"
 import { Search } from "lucide-react"
-import { ONBOARDING_KELAS_OPTIONS } from "@/lib/onboarding-kelas-filter"
+import {
+  LEADERBOARD_TOP_TIER_KELAS,
+  ONBOARDING_KELAS_OPTIONS,
+} from "@/lib/onboarding-kelas-filter"
 import { cn } from "@/lib/utils"
-
-type Tab = "onboarding" | "user"
 
 interface LeaderEntry {
   id: number
@@ -143,98 +144,39 @@ const ONBOARDING_DATA: LeaderEntry[] = [
   },
 ]
 
-const USER_DATA: LeaderEntry[] = [
-  {
-    id: 1,
-    nomorPokok: "11001",
-    nama: "KEVIN PRATAMA",
-    kodeSto: "10A10",
-    namaUnit: "Unit IT",
-    jabatan: "System Analyst",
-    status: "AKTIF",
-    kelas: "Onboarding MT/Organik Batch 2",
-    nilai: 90.5,
-    submitDurasiHari: 25,
-  },
-  {
-    id: 2,
-    nomorPokok: "22002",
-    nama: "LUNA SARI",
-    kodeSto: "20B20",
-    namaUnit: "Unit HR",
-    jabatan: "Recruiter",
-    status: "AKTIF",
-    kelas: "Onboarding PKWT Batch 1",
-    nilai: 87.33,
-    submitDurasiHari: 33,
-  },
-  {
-    id: 3,
-    nomorPokok: "33003",
-    nama: "MARIO RIZKI",
-    kodeSto: "30C30",
-    namaUnit: "Unit Finance",
-    jabatan: "Accountant",
-    status: "TIDAK AKTIF",
-    kelas: "Onboarding Pro Hire Batch 1",
-    nilai: 75.0,
-    submitDurasiHari: 45,
-  },
-  {
-    id: 4,
-    nomorPokok: "44004",
-    nama: "NADIA PERMATA",
-    kodeSto: "40D40",
-    namaUnit: "Unit Marketing",
-    jabatan: "Brand Manager",
-    status: "AKTIF",
-    kelas: "Onboarding PKWT Batch 1",
-    nilai: 93.25,
-    submitDurasiHari: 20,
-  },
-  {
-    id: 5,
-    nomorPokok: "55005",
-    nama: "OSCAR BUDIMAN",
-    kodeSto: "50E50",
-    namaUnit: "Unit Legal",
-    jabatan: "Compliance Officer",
-    status: "AKTIF",
-    kelas: "Onboarding MT/Organik Batch 2",
-    nilai: 87.33,
-    submitDurasiHari: 28,
-  },
-]
-
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 export default function LeaderboardPage() {
-  const [tab, setTab] = useState<Tab>("onboarding")
   const [search, setSearch] = useState("")
   const [pageSize, setPageSize] = useState(20)
   const [kelasFilter, setKelasFilter] = useState("all")
 
-  const source = tab === "onboarding" ? ONBOARDING_DATA : USER_DATA
-
   // Sort: nilai desc, then submitDurasiHari asc as tiebreaker
   const sorted = useMemo(
     () =>
-      [...source].sort((a, b) => {
+      [...ONBOARDING_DATA].sort((a, b) => {
         if (b.nilai !== a.nilai) return b.nilai - a.nilai
         return a.submitDurasiHari - b.submitDurasiHari
       }),
-    [source]
+    []
   )
 
-  const filtered = sorted.filter((r) => {
-    const matchesSearch =
-      r.nama.toLowerCase().includes(search.toLowerCase()) ||
-      r.nomorPokok.includes(search) ||
-      r.namaUnit.toLowerCase().includes(search.toLowerCase()) ||
-      r.jabatan.toLowerCase().includes(search.toLowerCase())
-    const matchesKelas = kelasFilter === "all" || r.kelas === kelasFilter
-    return matchesSearch && matchesKelas
-  })
+  const filtered = useMemo(() => {
+    const byKelas =
+      kelasFilter === "all"
+        ? sorted.filter((r) => r.kelas === LEADERBOARD_TOP_TIER_KELAS)
+        : sorted.filter((r) => r.kelas === kelasFilter)
+
+    return byKelas.filter((r) => {
+      const matchesSearch =
+        r.nama.toLowerCase().includes(search.toLowerCase()) ||
+        r.nomorPokok.includes(search) ||
+        r.namaUnit.toLowerCase().includes(search.toLowerCase()) ||
+        r.jabatan.toLowerCase().includes(search.toLowerCase()) ||
+        r.kelas.toLowerCase().includes(search.toLowerCase())
+      return matchesSearch
+    })
+  }, [sorted, kelasFilter, search])
 
   const displayed = filtered.slice(0, pageSize)
 
@@ -248,31 +190,8 @@ export default function LeaderboardPage() {
         <h1 className="mt-1 text-2xl font-bold">Leaderboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Peringkat peserta onboarding berdasarkan rata-rata nilai post test per
-          course & fase.
+          course &amp; fase.
         </p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1 border-b pb-0">
-        {(["onboarding", "user"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => {
-              setTab(t)
-              setSearch("")
-              setKelasFilter("all")
-            }}
-            className={cn(
-              "rounded-t-lg px-4 py-2 text-sm font-medium transition",
-              tab === t
-                ? "bg-[linear-gradient(135deg,#1e3a8a,#2563eb)] text-white shadow-sm"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            {t === "onboarding" ? "Onboarding" : "User"}
-          </button>
-        ))}
       </div>
 
       {/* Controls */}
@@ -305,7 +224,7 @@ export default function LeaderboardPage() {
               onChange={(e) => setKelasFilter(e.target.value)}
               className="rounded border border-border bg-background px-2 py-1 text-sm text-foreground focus:ring-2 focus:ring-primary/30 focus:outline-none"
             >
-              <option value="all">Semua Kelas</option>
+              <option value="all">Semua kelas</option>
               {ONBOARDING_KELAS_OPTIONS.map((k) => (
                 <option key={k} value={k}>
                   {k}
@@ -327,6 +246,16 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
+      <p className="text-[11px] text-muted-foreground">
+        <strong>Semua kelas:</strong> hanya menampilkan peserta{" "}
+        <span className="font-medium text-foreground">
+          {LEADERBOARD_TOP_TIER_KELAS}
+        </span>{" "}
+        (kelas tingkat tertinggi untuk mock).{" "}
+        <strong>Pilih satu kelas</strong> di filter untuk melihat peserta kelas
+        tersebut.
+      </p>
+
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-border shadow-sm">
         <div className="overflow-x-auto">
@@ -341,6 +270,9 @@ export default function LeaderboardPage() {
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                   Nama
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                  Kelas
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                   Kode STO
@@ -366,7 +298,7 @@ export default function LeaderboardPage() {
               {displayed.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="py-10 text-center text-muted-foreground"
                   >
                     Tidak ada data ditemukan.
@@ -374,8 +306,7 @@ export default function LeaderboardPage() {
                 </tr>
               ) : (
                 displayed.map((row, index) => {
-                  // Rank is based on position in the globally-sorted+filtered list
-                  const rank = index + 1
+                  const rank = filtered.indexOf(row) + 1
                   const isTop3 = rank <= 3
                   const medalColor =
                     rank === 1
@@ -412,6 +343,9 @@ export default function LeaderboardPage() {
                       </td>
                       <td className="px-4 py-4 font-bold">{row.nomorPokok}</td>
                       <td className="px-4 py-4 font-bold">{row.nama}</td>
+                      <td className="max-w-[13rem] px-4 py-4 text-xs leading-snug text-muted-foreground">
+                        {row.kelas}
+                      </td>
                       <td className="px-4 py-4 font-mono text-xs text-muted-foreground">
                         {row.kodeSto}
                       </td>

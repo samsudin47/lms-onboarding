@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import {
   ChevronDown,
   ChevronRight,
+  FileSpreadsheet,
   PencilLine,
   Plus,
   Search,
@@ -9,10 +10,12 @@ import {
   Trash2,
   X,
 } from "lucide-react"
+import * as XLSX from "xlsx"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SearchableSelect } from "@/components/searchable-select"
 import {
   getDemoUserTrack,
   getRolePermissions,
@@ -36,7 +39,6 @@ type BagianEvaluasiEntry = {
   evaluasiId: string
   kode: string
   nama: string
-  bobotPersen: number
   urutan: number
 }
 
@@ -48,12 +50,12 @@ type PoinEvaluasiEntry = {
   nilaiMaks: number
 }
 
-// ─── Master Bagian Options (from Master Bagian Evaluasi) ─────────────────────
+// ─── Master Bagian Options (from Bagian Evaluasi master data) ─────────────────────
 const MASTER_BAGIAN = [
-  { kode: "B01", nama: "Pengetahuan & Pemahaman", bobot: 25 },
-  { kode: "B02", nama: "Keterampilan Teknis", bobot: 30 },
-  { kode: "B03", nama: "Sikap & Perilaku", bobot: 20 },
-  { kode: "B04", nama: "Project & Implementasi", bobot: 25 },
+  { kode: "B01", nama: "Pengetahuan & Pemahaman" },
+  { kode: "B02", nama: "Keterampilan Teknis" },
+  { kode: "B03", nama: "Sikap & Perilaku" },
+  { kode: "B04", nama: "Project & Implementasi" },
 ]
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
@@ -87,7 +89,6 @@ const initialBagian: BagianEvaluasiEntry[] = [
     evaluasiId: "ev-01",
     kode: "B01",
     nama: "Pengetahuan & Pemahaman",
-    bobotPersen: 25,
     urutan: 1,
   },
   {
@@ -95,7 +96,6 @@ const initialBagian: BagianEvaluasiEntry[] = [
     evaluasiId: "ev-01",
     kode: "B02",
     nama: "Keterampilan Teknis",
-    bobotPersen: 30,
     urutan: 2,
   },
   {
@@ -103,7 +103,6 @@ const initialBagian: BagianEvaluasiEntry[] = [
     evaluasiId: "ev-01",
     kode: "B03",
     nama: "Sikap & Perilaku",
-    bobotPersen: 20,
     urutan: 3,
   },
   {
@@ -111,7 +110,6 @@ const initialBagian: BagianEvaluasiEntry[] = [
     evaluasiId: "ev-01",
     kode: "B04",
     nama: "Project & Implementasi",
-    bobotPersen: 25,
     urutan: 4,
   },
   {
@@ -119,7 +117,6 @@ const initialBagian: BagianEvaluasiEntry[] = [
     evaluasiId: "ev-02",
     kode: "B01",
     nama: "Pengetahuan & Pemahaman",
-    bobotPersen: 25,
     urutan: 1,
   },
   {
@@ -127,7 +124,6 @@ const initialBagian: BagianEvaluasiEntry[] = [
     evaluasiId: "ev-02",
     kode: "B02",
     nama: "Keterampilan Teknis",
-    bobotPersen: 30,
     urutan: 2,
   },
   {
@@ -135,7 +131,6 @@ const initialBagian: BagianEvaluasiEntry[] = [
     evaluasiId: "ev-02",
     kode: "B03",
     nama: "Sikap & Perilaku",
-    bobotPersen: 20,
     urutan: 3,
   },
 ]
@@ -246,6 +241,67 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function normalizeHeaderKey(key: string) {
+  return key.trim().toLowerCase().replace(/\s+/g, "")
+}
+
+/** Ambil nilai baris Excel jika header cocok dengan salah satu alias. */
+function cellByAliases(
+  row: Record<string, unknown>,
+  aliases: readonly string[]
+): string {
+  const normalizedAliases = aliases.map(normalizeHeaderKey)
+  for (const [header, value] of Object.entries(row)) {
+    const nk = normalizeHeaderKey(header)
+    if (normalizedAliases.includes(nk)) {
+      if (value == null || value === "") return ""
+      return String(value).trim()
+    }
+  }
+  return ""
+}
+
+function parseEvaluasiStatus(raw: string): EvaluasiStatus {
+  const s = normalizeHeaderKey(raw)
+  if (s === "aktif") return "Aktif"
+  if (s === "selesai") return "Selesai"
+  if (s === "draft" || s === "") return "Draft"
+  return "Draft"
+}
+
+/** Baris pertama sheet = header; kolom wajib: Kelas, Track, Periode; Status opsional. */
+function rowsFromExcelBuffer(buf: ArrayBuffer): EvaluasiEntry[] {
+  const wb = XLSX.read(buf, { type: "array" })
+  const sheetName = wb.SheetNames[0]
+  if (!sheetName) return []
+  const sheet = wb.Sheets[sheetName]
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: "",
+    raw: false,
+  })
+  const out: EvaluasiEntry[] = []
+  const kelasAliases = ["kelas", "class", "namakelas"]
+  const trackAliases = ["track"]
+  const periodeAliases = ["periode", "period"]
+  const statusAliases = ["status"]
+
+  for (const row of rows) {
+    const kelas = cellByAliases(row, kelasAliases)
+    const track = cellByAliases(row, trackAliases)
+    const periode = cellByAliases(row, periodeAliases)
+    if (!kelas || !track || !periode) continue
+    const statusRaw = cellByAliases(row, statusAliases)
+    out.push({
+      id: uid("ev"),
+      kelas,
+      track,
+      periode,
+      status: parseEvaluasiStatus(statusRaw),
+    })
+  }
+  return out
+}
+
 export default function EvaluationFeedbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -261,6 +317,7 @@ export default function EvaluationFeedbackPage() {
   // ── list-view state ───────────────────────────────────────────────────────
   const [search, setSearch] = useState("")
   const [showEntries, setShowEntries] = useState(20)
+  const excelImportInputRef = useRef<HTMLInputElement>(null)
 
   // ── evaluasi form (add/edit evaluasi) ────────────────────────────────────
   const [showEvalForm, setShowEvalForm] = useState(false)
@@ -278,7 +335,6 @@ export default function EvaluationFeedbackPage() {
   const [editingBagianId, setEditingBagianId] = useState<string | null>(null)
   const [bagianFormEvalId, setBagianFormEvalId] = useState("")
   const [bagianFormKode, setBagianFormKode] = useState("")
-  const [bagianFormBobot, setBagianFormBobot] = useState(0)
 
   // ── poin form ─────────────────────────────────────────────────────────────
   const [showPoinForm, setShowPoinForm] = useState(false)
@@ -315,11 +371,6 @@ export default function EvaluationFeedbackPage() {
         .filter((b) => b.evaluasiId === activeId)
         .sort((a, b) => a.urutan - b.urutan),
     [bagian, activeId]
-  )
-
-  const totalBobot = useMemo(
-    () => evalBagian.reduce((s, b) => s + b.bobotPersen, 0),
-    [evalBagian]
   )
 
   const usedBagianKodes = useMemo(
@@ -397,13 +448,35 @@ export default function EvaluationFeedbackPage() {
     })
   }
 
+  async function handleExcelImportChange(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    try {
+      const buf = await file.arrayBuffer()
+      const imported = rowsFromExcelBuffer(buf)
+      if (imported.length === 0) {
+        window.alert(
+          "Tidak ada baris valid. Baris pertama harus berisi header (Kelas, Track, Periode; Status opsional). Isi minimal satu baris data di bawahnya."
+        )
+        return
+      }
+      setEvaluasi((prev) => [...prev, ...imported])
+      window.alert(`Berhasil mengimpor ${imported.length} evaluasi dari Excel.`)
+    } catch {
+      window.alert(
+        "Gagal membaca file. Gunakan .xlsx, .xls, atau .csv dengan struktur yang valid."
+      )
+    }
+  }
+
   // ── handlers – bagian ─────────────────────────────────────────────────────
   function openAddBagian(evalId: string) {
     setBagianFormEvalId(evalId)
     setEditingBagianId(null)
     setBagianFormKode(availableBagian[0]?.kode ?? "")
-    const master = availableBagian[0]
-    setBagianFormBobot(master?.bobot ?? 0)
     setShowBagianForm(true)
   }
 
@@ -411,7 +484,6 @@ export default function EvaluationFeedbackPage() {
     setBagianFormEvalId(b.evaluasiId)
     setEditingBagianId(b.id)
     setBagianFormKode(b.kode)
-    setBagianFormBobot(b.bobotPersen)
     setShowBagianForm(true)
   }
 
@@ -426,7 +498,6 @@ export default function EvaluationFeedbackPage() {
                 ...b,
                 kode: master.kode,
                 nama: master.nama,
-                bobotPersen: bagianFormBobot,
               }
             : b
         )
@@ -442,7 +513,6 @@ export default function EvaluationFeedbackPage() {
           evaluasiId: bagianFormEvalId,
           kode: master.kode,
           nama: master.nama,
-          bobotPersen: bagianFormBobot,
           urutan: maxUrutan + 1,
         },
       ])
@@ -558,7 +628,7 @@ export default function EvaluationFeedbackPage() {
         {isDetailView && selectedEval ? (
           <>
             {/* Back + info bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-5 py-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-5 py-4 shadow-sm">
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -580,29 +650,6 @@ export default function EvaluationFeedbackPage() {
                 >
                   {selectedEval.status}
                 </span>
-              </div>
-
-              {/* Total bobot indicator */}
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Total bobot:</span>
-                <span
-                  className={cn(
-                    "font-bold tabular-nums",
-                    totalBobot === 100 ? "text-emerald-600" : "text-amber-600"
-                  )}
-                >
-                  {totalBobot}%
-                </span>
-                {totalBobot === 100 && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                    ✓ Lengkap
-                  </span>
-                )}
-                {totalBobot !== 100 && totalBobot > 0 && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                    Belum 100%
-                  </span>
-                )}
               </div>
             </div>
 
@@ -641,7 +688,6 @@ export default function EvaluationFeedbackPage() {
                             {b.nama}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Bobot: <strong>{b.bobotPersen}%</strong> &bull;{" "}
                             {bPoin.length} poin evaluasi
                           </p>
                         </div>
@@ -780,7 +826,7 @@ export default function EvaluationFeedbackPage() {
               </Button>
               {availableBagian.length === 0 && (
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  Semua bagian dari Master Bagian Evaluasi sudah ditambahkan.
+                  Semua bagian dari Bagian Evaluasi sudah ditambahkan.
                 </p>
               )}
             </div>
@@ -805,17 +851,33 @@ export default function EvaluationFeedbackPage() {
                 </select>
                 entries
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  ref={excelImportInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  className="sr-only"
+                  onChange={handleExcelImportChange}
+                />
                 <div className="relative">
                   <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-56 pl-9"
+                    className="h-9 w-56 rounded-md pl-9"
                   />
                 </div>
-                <Button type="button" onClick={openAddEval}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 rounded-md"
+                  onClick={() => excelImportInputRef.current?.click()}
+                >
+                  <FileSpreadsheet className="size-4" />
+                  Impor Excel
+                </Button>
+                <Button type="button" className="h-9 rounded-md" onClick={openAddEval}>
                   <Plus className="size-4" />
                   Tambah Evaluasi
                 </Button>
@@ -1065,43 +1127,19 @@ export default function EvaluationFeedbackPage() {
                   <label className="text-sm font-medium">
                     Bagian Evaluasi <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none"
-                    value={bagianFormKode}
-                    onChange={(e) => {
-                      const kode = e.target.value
-                      setBagianFormKode(kode)
-                      const master = MASTER_BAGIAN.find((m) => m.kode === kode)
-                      if (master) setBagianFormBobot(master.bobot)
-                    }}
-                  >
-                    {editingBagianId
-                      ? MASTER_BAGIAN.map((m) => (
-                          <option key={m.kode} value={m.kode}>
-                            {m.kode} — {m.nama}
-                          </option>
-                        ))
-                      : availableBagian.map((m) => (
-                          <option key={m.kode} value={m.kode}>
-                            {m.kode} — {m.nama}
-                          </option>
-                        ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Bobot (%)</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
+                  <SearchableSelect
                     className="mt-2"
-                    value={bagianFormBobot}
-                    onChange={(e) => setBagianFormBobot(Number(e.target.value))}
+                    value={bagianFormKode}
+                    onChange={(v) => setBagianFormKode(v)}
+                    options={(editingBagianId
+                      ? MASTER_BAGIAN
+                      : availableBagian
+                    ).map((m) => ({
+                      value: m.kode,
+                      label: `${m.kode} — ${m.nama}`,
+                    }))}
+                    dynamic
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Total bobot saat ini: <strong>{totalBobot}%</strong> dari
-                    100%
-                  </p>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button
