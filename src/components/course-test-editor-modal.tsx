@@ -1,11 +1,16 @@
-import { useEffect, useState } from "react"
-import { Plus, Trash2, X } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import type { ChangeEvent } from "react"
+import { Plus, Trash2, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { CourseQuizQuestion } from "@/types/course-quiz"
-
-const OPT_IDS = ["a", "b", "c", "d"] as const
+import {
+  contiguousFilledOptionsFromEditor,
+  normalizeCourseQuizQuestion,
+  parseCourseQuizExcelBuffer,
+  QUIZ_OPT_IDS as OPT_IDS,
+} from "@/lib/course-quiz-excel"
 
 export type CourseTestEditorValues = {
   preTestQuestions: CourseQuizQuestion[]
@@ -27,15 +32,13 @@ export function newEmptyQuestion(): CourseQuizQuestion {
 
 function validateQuestions(qs: CourseQuizQuestion[]): string | null {
   for (let i = 0; i < qs.length; i++) {
-    const q = qs[i]
-    if (!q.text.trim()) return `Soal ${i + 1}: teks pertanyaan wajib diisi.`
-    for (const oid of OPT_IDS) {
-      const o = q.options.find((x) => x.id === oid)
-      if (!o?.text.trim())
-        return `Soal ${i + 1}: opsi ${oid.toUpperCase()} wajib diisi.`
-    }
-    if (!OPT_IDS.includes(q.correct as (typeof OPT_IDS)[number]))
-      return `Soal ${i + 1}: pilih jawaban benar.`
+    const q = normalizeCourseQuizQuestion(qs[i])
+    if (!q.text.trim())
+      return `Soal ${i + 1}: teks pertanyaan wajib diisi.`
+    if (q.options.length < 2 || q.options.length > 4)
+      return `Soal ${i + 1}: isi 2–4 opsi berurutan mulai dari opsi A (tanpa melompati huruf).`
+    if (!q.options.some((o) => o.id === q.correct))
+      return `Soal ${i + 1}: pilih jawaban benar yang sesuai opsi terisi.`
   }
   return null
 }
@@ -70,6 +73,7 @@ export function CourseTestEditorModal({
   onSave,
 }: Props) {
   const [v, setV] = useState(initial)
+  const excelInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) setV(initial)
@@ -97,6 +101,49 @@ export function CourseTestEditorModal({
     fn((arr) => arr.map((q, i) => (i === index ? next : q)))
   }
 
+  async function handleQuizExcelChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    const buf = await file.arrayBuffer()
+    const { pre, post, errors } = parseCourseQuizExcelBuffer(buf)
+    if (errors.length) {
+      window.alert(
+        errors.slice(0, 15).join("\n") +
+          (errors.length > 15 ? `\n… (${errors.length} pesan)` : "")
+      )
+    }
+
+    setV((s) => {
+      if (s.testsUseSameQuestions) {
+        const bank = pre.length > 0 ? pre : post
+        if (bank.length === 0) {
+          if (!errors.length)
+            window.alert(
+              "Tidak ada baris valid (kolom jenis: pre atau post). "
+            )
+          return s
+        }
+        return { ...s, preTestQuestions: bank }
+      }
+      let next = { ...s }
+      if (pre.length) next = { ...next, preTestQuestions: pre }
+      if (post.length) next = { ...next, postTestQuestions: post }
+      if (!pre.length && !post.length && !errors.length)
+        window.alert("Tidak ada baris soal yang terbaca dari Excel.")
+      return next
+    })
+
+    if (pre.length + post.length > 0 && !errors.length)
+      window.alert(
+        `Berhasil mengimpor ${pre.length} soal pre dan ${post.length} soal post.`
+      )
+    else if (pre.length + post.length > 0 && errors.length)
+      window.alert(
+        `Terimpor parsial: ${pre.length} pre, ${post.length} post (lihat error di atas).`
+      )
+  }
+
   const errMsg = validateCourseTestEditor(v)
 
   return (
@@ -111,8 +158,9 @@ export function CourseTestEditorModal({
           <div>
             <h3 className="text-lg font-semibold">Atur pre / post test</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Bank soal pilihan ganda (empat opsi). Cocokkan dengan journey
-              peserta lewat ID materi (opsional).
+              Pilihan ganda minimal <strong>2</strong> dan maksimal{" "}
+              <strong>4</strong> opsi (isi berurutan A→D). Impor Excel untuk
+              bulk isi bank soal.
             </p>
           </div>
           <button
@@ -127,6 +175,32 @@ export function CourseTestEditorModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-3 py-2">
+              <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                className="sr-only"
+                onChange={handleQuizExcelChange}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => excelInputRef.current?.click()}
+              >
+                <Upload className="size-4" />
+                Impor Excel (soal)
+              </Button>
+              <span className="text-[11px] text-muted-foreground">
+                Kolom: <span className="font-mono">jenis</span> (pre/post),{" "}
+                <span className="font-mono">pertanyaan</span>,{" "}
+                <span className="font-mono">opsi_a</span> …{" "}
+                <span className="font-mono">opsi_d</span>,{" "}
+                <span className="font-mono">jawaban_benar</span> (a–d)
+              </span>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium">
@@ -229,7 +303,7 @@ export function CourseTestEditorModal({
               ))}
               {v.preTestQuestions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Belum ada soal. Klik &quot;Tambah soal&quot;.
+                  Belum ada soal. Klik &quot;Tambah soal&quot; atau impor Excel.
                 </p>
               ) : null}
             </section>
@@ -284,7 +358,15 @@ export function CourseTestEditorModal({
               onClick={() => {
                 const e = validateCourseTestEditor(v)
                 if (e) return
-                onSave(v)
+                onSave({
+                  ...v,
+                  preTestQuestions: v.preTestQuestions.map(
+                    normalizeCourseQuizQuestion
+                  ),
+                  postTestQuestions: v.postTestQuestions.map(
+                    normalizeCourseQuizQuestion
+                  ),
+                })
               }}
               disabled={!!errMsg}
             >
@@ -308,6 +390,15 @@ function QuestionCard({
   onChange: (q: CourseQuizQuestion) => void
   onRemove: () => void
 }) {
+  const filled = contiguousFilledOptionsFromEditor(question)
+  const selectOpts =
+    filled.length >= 2
+      ? filled
+      : OPT_IDS.map((id) => ({
+          id,
+          text: question.options.find((o) => o.id === id)?.text ?? "",
+        }))
+
   return (
     <div className="rounded-xl border bg-muted/20 p-4">
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -326,12 +417,14 @@ function QuestionCard({
       </label>
       <textarea
         value={question.text}
-        onChange={(e) =>
-          onChange({ ...question, text: e.target.value })
-        }
+        onChange={(e) => onChange({ ...question, text: e.target.value })}
         className="mb-3 min-h-16 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none"
         placeholder="Teks soal pilihan ganda"
       />
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        Isi opsi A–D secara berurutan; kosongkan opsi yang tidak dipakai setelah
+        opsi terakhir (minimal A &amp; B).
+      </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {OPT_IDS.map((oid) => {
           const opt =
@@ -369,15 +462,22 @@ function QuestionCard({
           Jawaban benar
         </label>
         <select
-          value={question.correct}
+          value={
+            selectOpts.some((o) => o.id === question.correct)
+              ? question.correct
+              : (selectOpts[0]?.id ?? "a")
+          }
           onChange={(e) =>
             onChange({ ...question, correct: e.target.value })
           }
           className="rounded-md border bg-background px-3 py-2 text-sm"
         >
-          {OPT_IDS.map((oid) => (
-            <option key={oid} value={oid}>
-              {oid.toUpperCase()}
+          {selectOpts.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.id.toUpperCase()}
+              {o.text
+                ? ` — ${o.text.slice(0, 48)}${o.text.length > 48 ? "…" : ""}`
+                : ""}
             </option>
           ))}
         </select>

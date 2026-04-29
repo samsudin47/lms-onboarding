@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import type { ChangeEvent } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import {
   ArrowRight,
   Check,
   ChevronDown,
+  ChevronUp,
   CircleX,
   ClipboardCheck,
   ImagePlus,
@@ -13,6 +15,7 @@ import {
   Settings2,
   Star,
   Trash2,
+  Upload,
   Users,
   X,
 } from "lucide-react"
@@ -52,8 +55,25 @@ import {
 } from "@/lib/course-quiz-bridge"
 import { dropdownNeedsSearch } from "@/lib/dropdown-search"
 import { derivePrePostQuizSets } from "@/lib/journey-quiz-utils"
+import {
+  directoryNpFromStoredNamaOrNp,
+  directoryUserSelectLabel,
+  namaFromDirectoryNp,
+  parseClassMenteeAssignmentsFromExcel,
+} from "@/lib/class-mentee-assignment-import"
+import { USER_DIRECTORY_SEED } from "@/lib/user-directory-seed"
 import type { CourseQuizQuestion } from "@/types/course-quiz"
 import { cn } from "@/lib/utils"
+import {
+  type BatchVisibility,
+  isBatchDeadlinePassed,
+  syncBatchAfterDeadlineEdit,
+} from "@/lib/class-lifecycle"
+import {
+  persistClassUserRows,
+  type ClassUserEnrollmentStatus,
+  type ClassUserRowPayload,
+} from "@/lib/class-users-storage"
 
 type JQuizQuestion = CourseQuizQuestion
 
@@ -79,7 +99,8 @@ type BatchRow = {
   status?: BatchStatus
   progress?: number
   shortname?: string
-  visible?: "PUBLISH" | "DRAFT"
+  /** Visible: termasuk COMPLETE saat kelas selesai (deadline lewat). */
+  visible?: BatchVisibility
 }
 
 type MenteeRow = {
@@ -120,6 +141,11 @@ type ClassMenteeEntry = {
   nomorPokok: string
   jabatan: string
   mentor: string
+  coMentor: string
+  /** class_users.status */
+  status: ClassUserEnrollmentStatus
+  /** class_users.enrolled_at (ISO); terisi saat peserta ditambahkan atau pertama masuk kelas */
+  enrolledAt: string | null
 }
 
 type MultiSelectOption = {
@@ -1818,7 +1844,9 @@ const trackJourneys: Record<
   },
 }
 
-const initialBatches: BatchRow[] = [
+type BatchRowSeed = Omit<BatchRow, "visible">
+
+const rawInitialBatches: BatchRowSeed[] = [
   {
     id: "batch-pkwt-apr",
     name: "PKWT April 2026",
@@ -2055,6 +2083,11 @@ const initialBatches: BatchRow[] = [
   },
 ]
 
+const initialBatches: BatchRow[] = rawInitialBatches.map((b): BatchRow => ({
+  ...b,
+  visible: isBatchDeadlinePassed(b.deadline) ? "COMPLETE" : "PUBLISH",
+}))
+
 const initialMentees: MenteeRow[] = [
   {
     id: "mentee-ayu",
@@ -2218,6 +2251,10 @@ const COURSES_CATALOG = [
   },
 ]
 
+function getCourseCatalogEntry(fullname: string) {
+  return COURSES_CATALOG.find((c) => c.fullname === fullname)
+}
+
 const MASTER_FASE_OPTIONS = [
   { kode: "F01", nama: "Orientasi & Pengenalan" },
   { kode: "F02", nama: "Pembelajaran Teknis" },
@@ -2268,42 +2305,57 @@ const initialClassMentees: ClassMenteeEntry[] = [
   {
     id: "cm-01",
     batchId: "batch-pkwt-apr",
-    nama: "Ayu Pratiwi",
-    nomorPokok: "12345",
-    jabatan: "PKWT",
+    nama: "Andi Pratama",
+    nomorPokok: "ONB01",
+    jabatan: "Magang Trainee",
     mentor: "",
+    coMentor: "",
+    status: "enrolled",
+    enrolledAt: "2026-04-07T02:00:00.000Z",
   },
   {
     id: "cm-02",
     batchId: "batch-pkwt-apr",
-    nama: "Budi Santoso",
-    nomorPokok: "12346",
-    jabatan: "PKWT",
+    nama: "Hendra Putra",
+    nomorPokok: "USR01",
+    jabatan: "Staff",
     mentor: "",
+    coMentor: "",
+    status: "completed",
+    enrolledAt: "2026-04-05T03:15:00.000Z",
   },
   {
     id: "cm-03",
     batchId: "batch-pkwt-apr",
-    nama: "Citra Dewi",
-    nomorPokok: "12347",
-    jabatan: "PKWT",
+    nama: "Admin Peruri",
+    nomorPokok: "ADM01",
+    jabatan: "Admin PSP",
     mentor: "",
+    coMentor: "",
+    status: "enrolled",
+    enrolledAt: "2026-04-08T09:00:00.000Z",
   },
   {
     id: "cm-04",
     batchId: "batch-prohire-apr",
-    nama: "Dani Wijaya",
-    nomorPokok: "23001",
-    jabatan: "Pro Hire",
+    nama: "Rina Oktavia",
+    nomorPokok: "MNT01",
+    jabatan: "Mentor",
     mentor: "",
+    coMentor: "",
+    status: "enrolled",
+    enrolledAt: "2026-04-10T08:00:00.000Z",
   },
   {
     id: "cm-05",
     batchId: "batch-prohire-apr",
-    nama: "Eka Rahayu",
-    nomorPokok: "23002",
-    jabatan: "Pro Hire",
+    nama: "Tester Internal",
+    nomorPokok: "PNJ01",
+    jabatan: "Penguji Internal",
     mentor: "",
+    coMentor: "",
+    status: "completed",
+    enrolledAt: "2026-04-11T10:30:00.000Z",
   },
 ]
 
@@ -2324,6 +2376,34 @@ function parseAssignmentList(value: string) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function buildClassUserPayloads(
+  mentees: ClassMenteeEntry[],
+  batches: BatchRow[]
+): ClassUserRowPayload[] {
+  const names = new Map(batches.map((b) => [b.id, b.name]))
+  return mentees.map((m) => ({
+    id: m.id,
+    batchId: m.batchId,
+    batchName: names.get(m.batchId) ?? "",
+    nomorPokok: m.nomorPokok,
+    nama: m.nama,
+    status: m.status,
+    enrolledAt: m.enrolledAt,
+  }))
+}
+
+function formatClassUserEnrolledAt(iso: string | null): string {
+  if (!iso?.trim()) return "—"
+  try {
+    return new Intl.DateTimeFormat("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(iso))
+  } catch {
+    return iso
+  }
 }
 
 function buildBatchMentees(batch: BatchRow): GeneratedMenteeRow[] {
@@ -2723,41 +2803,6 @@ function MultiSelectField({
   )
 }
 
-function SingleSelectField({
-  id,
-  label,
-  options,
-  value,
-  onChange,
-  emptyText,
-  dynamic,
-}: {
-  id: string
-  label: string
-  options: MultiSelectOption[]
-  value: string
-  onChange: (next: string) => void
-  emptyText: string
-  dynamic?: boolean
-}) {
-  return (
-    <div className="relative">
-      <label className="mb-1 block text-sm font-medium" htmlFor={id}>
-        {label}
-      </label>
-      <SearchableSelect
-        id={id}
-        value={value}
-        onChange={onChange}
-        options={options}
-        placeholder={emptyText}
-        variant="rounded"
-        dynamic={dynamic}
-      />
-    </div>
-  )
-}
-
 export default function ClassBatchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const currentUser = getStoredDemoUser()
@@ -2886,7 +2931,8 @@ export default function ClassBatchPage() {
     string | null
   >(null)
   const [formShortname, setFormShortname] = useState("")
-  const [formVisible, setFormVisible] = useState<"PUBLISH" | "DRAFT">("PUBLISH")
+  const [formVisible, setFormVisible] =
+    useState<BatchVisibility>("PUBLISH")
   const [formKategoriTrack, setFormKategoriTrack] = useState<ClassTrack | "">(
     ""
   )
@@ -2896,6 +2942,28 @@ export default function ClassBatchPage() {
   const [classFase, setClassFase] = useState<ClassFaseEntry[]>(initialClassFase)
   const [classMentees, setClassMentees] =
     useState<ClassMenteeEntry[]>(initialClassMentees)
+  const classMenteeExcelImportRef = useRef<HTMLInputElement>(null)
+
+  const directoryUserSelectOptions = useMemo(
+    () =>
+      USER_DIRECTORY_SEED.map((u) => ({
+        value: u.nomorPokok,
+        label: directoryUserSelectLabel(u),
+      })),
+    []
+  )
+
+  const mentorCoSelectOptions = useMemo(
+    () => [
+      { value: "", label: "— Tidak ada" },
+      ...directoryUserSelectOptions,
+    ],
+    [directoryUserSelectOptions]
+  )
+
+  useEffect(() => {
+    persistClassUserRows(buildClassUserPayloads(classMentees, batches))
+  }, [classMentees, batches])
   // Fase form
   const [showFaseForm, setShowFaseForm] = useState(false)
   const [editingFaseId, setEditingFaseId] = useState<string | null>(null)
@@ -2980,7 +3048,10 @@ export default function ClassBatchPage() {
   const [menteeFormNama, setMenteeFormNama] = useState("")
   const [menteeFormNomor, setMenteeFormNomor] = useState("")
   const [menteeFormJabatan, setMenteeFormJabatan] = useState("")
-  const [menteeFormMentor, setMenteeFormMentor] = useState("")
+  const [menteeFormMentorNp, setMenteeFormMentorNp] = useState("")
+  const [menteeFormCoMentorNp, setMenteeFormCoMentorNp] = useState("")
+  const [menteeFormStatus, setMenteeFormStatus] =
+    useState<ClassUserEnrollmentStatus>("enrolled")
 
   const filteredBatches = useMemo(
     () => batches.filter((batch) => batch.track === activeTrack),
@@ -3153,6 +3224,16 @@ export default function ClassBatchPage() {
     event.preventDefault()
     if (!name.trim() || !periodStart || !periodEnd) return
 
+    const dl = deadline.trim() || periodEnd.trim()
+    const prevBatch = editingId
+      ? batches.find((b) => b.id === editingId)
+      : undefined
+    const { visible } = syncBatchAfterDeadlineEdit({
+      newDeadline: dl,
+      previousDeadline: prevBatch?.deadline,
+      formVisible,
+    })
+
     const nextBatch: BatchRow = {
       id: editingId ?? `batch-${crypto.randomUUID().slice(0, 8)}`,
       name: name.trim(),
@@ -3164,12 +3245,12 @@ export default function ClassBatchPage() {
       mentor: selectedMentors.join(", "),
       coMentor: selectedCoMentors.join(", "),
       mentee: "",
-      deadline: deadline || periodEnd,
+      deadline: dl,
       grading: grading.trim() || "70% test • 30% tugas",
       calendarUrl: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(name.trim())}`,
       headerImage: headerImagePreview ?? undefined,
       shortname: formShortname.trim() || undefined,
-      visible: formVisible,
+      visible,
     }
 
     setBatches((prev) => {
@@ -4797,7 +4878,9 @@ export default function ClassBatchPage() {
       setMenteeFormNama("")
       setMenteeFormNomor("")
       setMenteeFormJabatan(selectedBatch?.track ?? "")
-      setMenteeFormMentor("")
+      setMenteeFormMentorNp("")
+      setMenteeFormCoMentorNp("")
+      setMenteeFormStatus("enrolled")
       setShowMenteeForm(true)
     }
     function openEditMentee(m: ClassMenteeEntry) {
@@ -4805,25 +4888,90 @@ export default function ClassBatchPage() {
       setMenteeFormNama(m.nama)
       setMenteeFormNomor(m.nomorPokok)
       setMenteeFormJabatan(m.jabatan)
-      setMenteeFormMentor(m.mentor)
+      setMenteeFormMentorNp(directoryNpFromStoredNamaOrNp(m.mentor))
+      setMenteeFormCoMentorNp(directoryNpFromStoredNamaOrNp(m.coMentor))
+      setMenteeFormStatus(m.status)
       setShowMenteeForm(true)
     }
     function saveMentee() {
-      if (!menteeFormNama.trim()) return
-      const entry: ClassMenteeEntry = {
-        id: editingMenteeId ?? `cm-${classMentees.length + 1}-${activeBatchId}`,
-        batchId: activeBatchId,
-        nama: menteeFormNama.trim(),
-        nomorPokok: menteeFormNomor.trim(),
-        jabatan: menteeFormJabatan.trim(),
-        mentor: menteeFormMentor.trim(),
-      }
-      setClassMentees((prev) =>
-        editingMenteeId
-          ? prev.map((m) => (m.id === editingMenteeId ? entry : m))
-          : [...prev, entry]
+      if (!menteeFormNomor.trim()) return
+      const mu = USER_DIRECTORY_SEED.find(
+        (u) => u.nomorPokok === menteeFormNomor.trim()
       )
+      if (!mu) return
+      const prior = editingMenteeId
+        ? classMentees.find((x) => x.id === editingMenteeId)
+        : undefined
+      const entry: ClassMenteeEntry = {
+        id: editingMenteeId ?? `cm-${activeBatchId}-${mu.nomorPokok}`,
+        batchId: activeBatchId,
+        nama: mu.nama,
+        nomorPokok: mu.nomorPokok,
+        jabatan: mu.jabatan,
+        mentor: namaFromDirectoryNp(menteeFormMentorNp),
+        coMentor: namaFromDirectoryNp(menteeFormCoMentorNp),
+        status: menteeFormStatus,
+        enrolledAt:
+          editingMenteeId && prior
+            ? prior.enrolledAt ?? new Date().toISOString()
+            : new Date().toISOString(),
+      }
+      setClassMentees((prev) => {
+        if (editingMenteeId) {
+          return prev.map((m) => (m.id === editingMenteeId ? entry : m))
+        }
+        const withoutDup = prev.filter(
+          (m) =>
+            !(
+              m.batchId === activeBatchId &&
+              m.nomorPokok === entry.nomorPokok
+            )
+        )
+        return [...withoutDup, entry]
+      })
       setShowMenteeForm(false)
+    }
+
+    async function handleClassMenteeExcelImport(e: ChangeEvent<HTMLInputElement>) {
+      const file = e.target.files?.[0]
+      e.target.value = ""
+      if (!file || !activeBatchId) return
+      const buf = await file.arrayBuffer()
+      const { rows, errors } = parseClassMenteeAssignmentsFromExcel(buf)
+      if (errors.length) {
+        window.alert(
+          errors.slice(0, 25).join("\n") +
+            (errors.length > 25 ? `\n… (${errors.length} pesan)` : "")
+        )
+      }
+      if (!rows.length) {
+        if (!errors.length) window.alert("Tidak ada baris mentee yang valid.")
+        return
+      }
+      setClassMentees((prev) => {
+        const others = prev.filter((m) => m.batchId !== activeBatchId)
+        const sameBatch = prev.filter((m) => m.batchId === activeBatchId)
+        const byNp = new Map(
+          sameBatch.map((m) => [m.nomorPokok.toLowerCase(), m])
+        )
+        for (const r of rows) {
+          const key = r.nomorPokok.toLowerCase()
+          const existing = byNp.get(key)
+          byNp.set(key, {
+            id: existing?.id ?? `cm-${activeBatchId}-${r.nomorPokok}`,
+            batchId: activeBatchId,
+            nama: r.nama,
+            nomorPokok: r.nomorPokok,
+            jabatan: r.jabatan,
+            mentor: r.mentor,
+            coMentor: r.coMentor,
+            status: existing?.status ?? "enrolled",
+            enrolledAt: existing?.enrolledAt ?? new Date().toISOString(),
+          })
+        }
+        return [...others, ...Array.from(byNp.values())]
+      })
+      window.alert(`Berhasil mengimpor / memperbarui ${rows.length} mentee.`)
     }
 
     return (
@@ -4885,7 +5033,7 @@ export default function ClassBatchPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+                    <tr className="bg-[#202887] text-slate-50">
                       <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                         #
                       </th>
@@ -5022,80 +5170,132 @@ export default function ClassBatchPage() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium">
-                        Materi (pilih dari Courses)
-                      </label>
-                      <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-background p-2">
-                        {COURSES_CATALOG.map((course) => {
-                          const checked = faseFormMateri.includes(
-                            course.fullname
-                          )
-                          return (
-                            <label
-                              key={course.id}
-                              className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/50"
-                            >
-                              <input
-                                type="checkbox"
-                                className="mt-0.5 shrink-0"
-                                checked={checked}
-                                onChange={() =>
-                                  setFaseFormMateri((prev) =>
-                                    checked
-                                      ? prev.filter(
-                                          (x) => x !== course.fullname
-                                        )
-                                      : [...prev, course.fullname]
-                                  )
-                                }
-                              />
-                              <span className="flex-1">
-                                {course.fullname}
-                                <span className="ml-1.5 text-[10px] text-muted-foreground">
-                                  [{course.kategori}]
-                                </span>
-                                {course.preTest && (
-                                  <span className="ml-1 rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
-                                    Pre
+                      <MultiSelectField
+                        id="fase-form-materi"
+                        label="Materi (pilih dari Courses)"
+                        emptyText="Pilih satu atau lebih course…"
+                        dynamic
+                        options={COURSES_CATALOG.map((course) => ({
+                          value: course.fullname,
+                          label: `${course.fullname} — ${course.kategori} · Pre ${course.preTest === true ? "✓" : "—"} · Post ${course.postTest === true ? "✓" : "—"}`,
+                        }))}
+                        value={faseFormMateri}
+                        onChange={setFaseFormMateri}
+                      />
+                      {faseFormMateri.length > 0 ? (
+                        <div className="mt-3 rounded-xl border bg-muted/25 p-3">
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">
+                            Urutan materi (jalannya pembelajaran)
+                          </p>
+                          <ul className="space-y-1.5">
+                            {faseFormMateri.map((m, idx) => {
+                              const course = getCourseCatalogEntry(m)
+                              const hasPre = course?.preTest === true
+                              const hasPost = course?.postTest === true
+                              return (
+                                <li
+                                  key={`${m}-${idx}`}
+                                  className="flex items-center gap-2 rounded-lg border bg-background px-2 py-2 text-sm shadow-sm"
+                                >
+                                  <span className="w-7 shrink-0 text-center text-xs font-semibold tabular-nums text-muted-foreground">
+                                    {idx + 1}
                                   </span>
-                                )}
-                                {course.postTest && (
-                                  <span className="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                                    Post
-                                  </span>
-                                )}
-                              </span>
-                            </label>
-                          )
-                        })}
-                      </div>
-                      {faseFormMateri.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {faseFormMateri.map((m) => (
-                            <span
-                              key={m}
-                              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-                            >
-                              {m}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setFaseFormMateri((prev) =>
-                                    prev.filter((x) => x !== m)
-                                  )
-                                }
-                                className="hover:text-red-500"
-                              >
-                                &times;
-                              </button>
-                            </span>
-                          ))}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate font-medium leading-tight">
+                                      {m}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {hasPre ? (
+                                        <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-950/60 dark:text-sky-200">
+                                          Pre-test
+                                        </span>
+                                      ) : (
+                                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                          Tanpa pre-test
+                                        </span>
+                                      )}
+                                      {hasPost ? (
+                                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
+                                          Post-test
+                                        </span>
+                                      ) : (
+                                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                          Tanpa post-test
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex shrink-0 flex-col gap-0.5">
+                                    <button
+                                      type="button"
+                                      title="Naikkan"
+                                      disabled={idx === 0}
+                                      onClick={() =>
+                                        setFaseFormMateri((prev) => {
+                                          if (idx === 0) return prev
+                                          const next = [...prev]
+                                          ;[next[idx - 1], next[idx]] = [
+                                            next[idx],
+                                            next[idx - 1],
+                                          ]
+                                          return next
+                                        })
+                                      }
+                                      className={cn(
+                                        "rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground",
+                                        idx === 0 && "pointer-events-none opacity-30"
+                                      )}
+                                    >
+                                      <ChevronUp className="size-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="Turunkan"
+                                      disabled={
+                                        idx === faseFormMateri.length - 1
+                                      }
+                                      onClick={() =>
+                                        setFaseFormMateri((prev) => {
+                                          if (idx >= prev.length - 1)
+                                            return prev
+                                          const next = [...prev]
+                                          ;[next[idx], next[idx + 1]] = [
+                                            next[idx + 1],
+                                            next[idx],
+                                          ]
+                                          return next
+                                        })
+                                      }
+                                      className={cn(
+                                        "rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground",
+                                        idx === faseFormMateri.length - 1 &&
+                                          "pointer-events-none opacity-30"
+                                      )}
+                                    >
+                                      <ChevronDown className="size-4" />
+                                    </button>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    title="Hapus dari urutan"
+                                    onClick={() =>
+                                      setFaseFormMateri((prev) =>
+                                        prev.filter((_, i) => i !== idx)
+                                      )
+                                    }
+                                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                                  >
+                                    <X className="size-4" />
+                                  </button>
+                                </li>
+                              )
+                            })}
+                          </ul>
                         </div>
-                      )}
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Centang course yang menjadi materi di fase ini.
-                        Konfigurasi pre/post test per course diatur di menu
-                        Courses.
+                      ) : null}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Pre-test dan post-test mengikuti pengaturan tiap course di
+                        menu Courses. Atur urutan dengan panah.
                       </p>
                     </div>
                     <div>
@@ -5138,26 +5338,46 @@ export default function ClassBatchPage() {
         {/* ── MENTEE TAB ── */}
         {settingTab === "mentee" && (
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
+            <input
+              ref={classMenteeExcelImportRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleClassMenteeExcelImport}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">
-                Kelola daftar mentee pada class ini.
+                Kelola daftar mentee pada class ini. Pilih peserta dari{" "}
+                <strong>Daftar Pengguna</strong>; mentor &amp; co-mentor dari
+                direktori yang sama.
                 {!needsMentor && (
                   <span className="ml-1 text-xs text-amber-600">
-                    (PKWT & Pro Hire tidak perlu assign mentor)
+                    (PKWT &amp; Pro Hire: mentor/co bersifat opsional)
                   </span>
                 )}
               </p>
-              <Button type="button" size="sm" onClick={openAddMentee}>
-                <Plus className="size-4" />
-                Tambah Mentee
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => classMenteeExcelImportRef.current?.click()}
+                >
+                  <Upload className="size-4" />
+                  Import Excel
+                </Button>
+                <Button type="button" size="sm" onClick={openAddMentee}>
+                  <Plus className="size-4" />
+                  Tambah Mentee
+                </Button>
+              </div>
             </div>
 
             <div className="overflow-hidden rounded-xl border shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+                    <tr className="bg-[#202887] text-slate-50">
                       <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                         #
                       </th>
@@ -5170,11 +5390,18 @@ export default function ClassBatchPage() {
                       <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                         Jabatan
                       </th>
-                      {needsMentor && (
-                        <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
-                          Mentor
-                        </th>
-                      )}
+                      <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                        Enrolled at
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                        Mentor
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                        Co-mentor
+                      </th>
                       <th className="px-4 py-3 text-center text-xs font-semibold tracking-wide uppercase">
                         <Settings2 className="mx-auto size-4" />
                       </th>
@@ -5184,11 +5411,11 @@ export default function ClassBatchPage() {
                     {batchMentees.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={needsMentor ? 6 : 5}
+                          colSpan={9}
                           className="py-10 text-center text-muted-foreground"
                         >
-                          Belum ada mentee. Klik "Tambah Mentee" untuk
-                          menambahkan.
+                          Belum ada mentee. Gunakan Import Excel atau klik
+                          &quot;Tambah Mentee&quot;.
                         </td>
                       </tr>
                     ) : (
@@ -5208,25 +5435,49 @@ export default function ClassBatchPage() {
                             {m.nomorPokok || "—"}
                           </td>
                           <td className="px-4 py-3.5">{m.jabatan || "—"}</td>
-                          {needsMentor && (
-                            <td className="px-4 py-3.5">
-                              {m.mentor ? (
-                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                                  {m.mentor}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-amber-500">
-                                  Belum assign
-                                </span>
-                              )}
-                            </td>
-                          )}
+                          <td className="px-4 py-3.5">
+                            {m.status === "completed" ? (
+                              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                Selesai
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">
+                                Berlangsung
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-xs text-muted-foreground">
+                            {formatClassUserEnrolledAt(m.enrolledAt)}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {m.mentor ? (
+                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                                {m.mentor}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {m.coMentor ? (
+                              <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+                                {m.coMentor}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </td>
                           <td className="px-4 py-3.5">
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => openEditMentee(m)}
                                 className="cursor-pointer text-muted-foreground transition hover:text-primary"
+                                title="Edit"
                               >
                                 <PencilLine className="size-4" />
                               </button>
@@ -5238,6 +5489,7 @@ export default function ClassBatchPage() {
                                   )
                                 }
                                 className="cursor-pointer text-muted-foreground transition hover:text-red-500"
+                                title="Hapus"
                               >
                                 <Trash2 className="size-4" />
                               </button>
@@ -5251,77 +5503,162 @@ export default function ClassBatchPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Menampilkan {batchMentees.length} mentee
+              Import: kolom{" "}
+              <span className="font-mono text-[11px]">mentee</span>,{" "}
+              <span className="font-mono text-[11px]">mentor</span>,{" "}
+              <span className="font-mono text-[11px]">co_mentor</span> (nama atau
+              nomor pokok yang sama dengan Daftar Pengguna). Menampilkan{" "}
+              {batchMentees.length} mentee.
             </p>
 
             {/* Mentee Modal */}
             {showMenteeForm && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-                <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl">
-                  <h3 className="mb-4 text-lg font-semibold">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-8">
+                <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-card p-8 shadow-xl">
+                  <h3 className="mb-5 text-xl font-semibold tracking-tight">
                     {editingMenteeId ? "Edit Mentee" : "Tambah Mentee"}
                   </h3>
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div>
-                      <label className="mb-1 block text-sm font-medium">
-                        Nama <span className="text-red-500">*</span>
+                      <label
+                        className="mb-2 block text-base font-medium"
+                        htmlFor="mentee-directory-select"
+                      >
+                        Peserta{" "}
+                        <span className="text-red-500">*</span>
                       </label>
-                      <Input
-                        value={menteeFormNama}
-                        onChange={(e) => setMenteeFormNama(e.target.value)}
-                        placeholder="Nama lengkap mentee"
+                      <SearchableSelect
+                        id="mentee-directory-select"
+                        value={menteeFormNomor}
+                        onChange={(np) => {
+                          setMenteeFormNomor(np)
+                          if (menteeFormMentorNp === np) setMenteeFormMentorNp("")
+                          if (menteeFormCoMentorNp === np)
+                            setMenteeFormCoMentorNp("")
+                          const u = USER_DIRECTORY_SEED.find(
+                            (x) => x.nomorPokok === np
+                          )
+                          if (u) {
+                            setMenteeFormNama(u.nama)
+                            setMenteeFormJabatan(u.jabatan)
+                          } else {
+                            setMenteeFormNama("")
+                            setMenteeFormJabatan(selectedBatch?.track ?? "")
+                          }
+                        }}
+                        placeholderOption={{
+                          value: "",
+                          label: "Pilih pengguna (Daftar Pengguna)…",
+                        }}
+                        placeholder="Pilih peserta…"
+                        options={directoryUserSelectOptions}
+                        dynamic
+                        variant="rounded"
+                        size="comfortable"
+                        minWidthClassName="min-w-full"
                       />
+                      <p className="mt-3 rounded-xl border bg-muted/40 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                        {menteeFormNomor ? (
+                          <>
+                            <span className="font-medium text-foreground">
+                              {menteeFormNama || "—"}
+                            </span>
+                            {" · "}
+                            <span className="font-mono">{menteeFormNomor}</span>
+                            {" · "}
+                            {menteeFormJabatan || "—"}
+                          </>
+                        ) : (
+                          "Ringkasan akan terisi setelah Anda memilih pengguna."
+                        )}
+                      </p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="mb-1 block text-sm font-medium">
-                          Nomor Pokok
-                        </label>
-                        <Input
-                          value={menteeFormNomor}
-                          onChange={(e) => setMenteeFormNomor(e.target.value)}
-                          placeholder="12345"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-sm font-medium">
-                          Jabatan
-                        </label>
-                        <Input
-                          value={menteeFormJabatan}
-                          onChange={(e) => setMenteeFormJabatan(e.target.value)}
-                          placeholder="PKWT / Pro Hire / MT"
-                        />
-                      </div>
+                    <div>
+                      <label
+                        className="mb-2 block text-base font-medium"
+                        htmlFor="mentee-class-status"
+                      >
+                        Status kelas{" "}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          (class_users.status)
+                        </span>
+                      </label>
+                      <select
+                        id="mentee-class-status"
+                        value={menteeFormStatus}
+                        onChange={(e) =>
+                          setMenteeFormStatus(
+                            e.target.value as ClassUserEnrollmentStatus
+                          )
+                        }
+                        disabled={!menteeFormNomor}
+                        className="flex min-h-[3.25rem] w-full rounded-2xl border border-input bg-background px-4 py-3 text-base shadow-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
+                      >
+                        <option value="enrolled">Berlangsung</option>
+                        <option value="completed">Selesai</option>
+                      </select>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        <span className="font-mono">enrolled_at</span> terisi
+                        otomatis saat peserta pertama kali ditambahkan ke kelas
+                        (mock).
+                      </p>
                     </div>
-                    {needsMentor && (
+                    <div className="grid gap-5 sm:grid-cols-2">
                       <div>
-                        <SingleSelectField
-                          id="assign-mentor"
-                          label="Assign Mentor"
-                          value={menteeFormMentor}
-                          onChange={setMenteeFormMentor}
-                          emptyText="Pilih mentor"
+                        <label className="mb-2 block text-base font-medium">
+                          Mentor
+                        </label>
+                        <SearchableSelect
+                          id="mentee-form-mentor"
+                          value={menteeFormMentorNp}
+                          onChange={setMenteeFormMentorNp}
+                          placeholderOption={{
+                            value: "",
+                            label: "— Tidak ada",
+                          }}
+                          placeholder="Pilih mentor…"
+                          options={mentorCoSelectOptions.filter((o) => o.value !== menteeFormNomor)}
                           dynamic
-                          options={mentorRecords
-                            .filter((mr) => mr.role === "Mentor")
-                            .map((mr) => ({
-                              value: mr.name,
-                              label: mr.name,
-                            }))}
+                          variant="rounded"
+                          size="comfortable"
+                          minWidthClassName="min-w-full"
+                          disabled={!menteeFormNomor}
                         />
                       </div>
-                    )}
+                      <div>
+                        <label className="mb-2 block text-base font-medium">
+                          Co-mentor
+                        </label>
+                        <SearchableSelect
+                          id="mentee-form-co"
+                          value={menteeFormCoMentorNp}
+                          onChange={setMenteeFormCoMentorNp}
+                          placeholderOption={{
+                            value: "",
+                            label: "— Tidak ada",
+                          }}
+                          placeholder="Pilih co-mentor…"
+                          options={mentorCoSelectOptions.filter((o) => o.value !== menteeFormNomor)}
+                          dynamic
+                          variant="rounded"
+                          size="comfortable"
+                          minWidthClassName="min-w-full"
+                          disabled={!menteeFormNomor}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-5 flex justify-end gap-2">
+                  <div className="mt-8 flex justify-end gap-3">
                     <Button
                       variant="outline"
                       type="button"
+                      size="lg"
+                      className="min-w-[7rem]"
                       onClick={() => setShowMenteeForm(false)}
                     >
                       Batal
                     </Button>
-                    <Button type="button" onClick={saveMentee}>
+                    <Button type="button" size="lg" className="min-w-[7rem]" onClick={saveMentee}>
                       Simpan
                     </Button>
                   </div>
@@ -7066,7 +7403,7 @@ export default function ClassBatchPage() {
                   </div>
 
                   <article className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                    <div className="flex items-start justify-between gap-3 border-b bg-[linear-gradient(135deg,#1e3a8a,#1d4ed8)] px-4 py-3 text-white">
+                    <div className="flex items-start justify-between gap-3 border-b bg-[#202887] px-4 py-3 text-slate-50">
                       <div className="flex items-start gap-3">
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white">
                           {activeJourneyStep}
@@ -7167,7 +7504,7 @@ export default function ClassBatchPage() {
                               className={cn(
                                 "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
                                 isActiveStep
-                                  ? "bg-[linear-gradient(135deg,#1e3a8a,#2563eb)] text-white"
+                                  ? "bg-[#202887] text-slate-50"
                                   : isCompletedStep
                                     ? "bg-emerald-500 text-white"
                                     : "bg-slate-200 text-slate-700"
@@ -7427,7 +7764,7 @@ export default function ClassBatchPage() {
                           open={index === 0}
                           className="overflow-hidden rounded-xl border border-blue-900/30 bg-background"
                         >
-                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-[linear-gradient(135deg,#172554,#1d4ed8)] px-3 py-2 text-sm font-medium text-white [&::-webkit-details-marker]:hidden">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-[#202887] px-3 py-2 text-sm font-medium text-slate-50 [&::-webkit-details-marker]:hidden">
                             <span>
                               {index + 1}. {step.title}
                             </span>
@@ -7876,7 +8213,7 @@ export default function ClassBatchPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+                  <tr className="bg-[#202887] text-slate-50">
                     <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                       #
                     </th>
@@ -7915,12 +8252,11 @@ export default function ClassBatchPage() {
                     </tr>
                   ) : (
                     adminDisplayedBatches.map((batch, index) => {
-                      const visibleStatus =
+                      const visibleStatus: BatchVisibility =
                         batch.visible ??
-                        (batch.status === "Selesai" ||
-                        batch.status === "Sedang Berjalan"
-                          ? "PUBLISH"
-                          : "DRAFT")
+                        (isBatchDeadlinePassed(batch.deadline)
+                          ? "COMPLETE"
+                          : "PUBLISH")
                       return (
                         <tr
                           key={batch.id}
@@ -7947,11 +8283,20 @@ export default function ClassBatchPage() {
                           </td>
                           <td className="px-4 py-4">
                             <span
+                              title={
+                                visibleStatus === "COMPLETE"
+                                  ? "Kelas selesai (deadline lewat atau dipilih manual)"
+                                  : visibleStatus === "PUBLISH"
+                                    ? "Terbit untuk peserta"
+                                    : "Belum terbit"
+                              }
                               className={cn(
                                 "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold",
-                                visibleStatus === "PUBLISH"
-                                  ? "border-emerald-400 text-emerald-600"
-                                  : "border-slate-300 text-slate-500"
+                                visibleStatus === "COMPLETE"
+                                  ? "border-violet-400 text-violet-700"
+                                  : visibleStatus === "PUBLISH"
+                                    ? "border-emerald-400 text-emerald-600"
+                                    : "border-slate-300 text-slate-500"
                               )}
                             >
                               {visibleStatus}
@@ -8210,11 +8555,12 @@ export default function ClassBatchPage() {
                       className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                       value={formVisible}
                       onChange={(e) =>
-                        setFormVisible(e.target.value as "PUBLISH" | "DRAFT")
+                        setFormVisible(e.target.value as BatchVisibility)
                       }
                     >
                       <option value="PUBLISH">PUBLISH</option>
                       <option value="DRAFT">DRAFT</option>
+                      <option value="COMPLETE">COMPLETE</option>
                     </select>
                   </div>
 

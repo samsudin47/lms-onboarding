@@ -31,6 +31,31 @@ export function sheetToDataRows(buf: ArrayBuffer): Record<string, unknown>[] {
   })
 }
 
+/** Ya/tidak, 1/0, benar/salah — default false */
+export function parseBooleanLike(raw: unknown): boolean {
+  if (raw == null || raw === "") return false
+  const s = String(raw).trim().toLowerCase()
+  if (
+    s === "ya" ||
+    s === "yes" ||
+    s === "y" ||
+    s === "1" ||
+    s === "true" ||
+    s === "benar"
+  )
+    return true
+  if (
+    s === "tidak" ||
+    s === "no" ||
+    s === "n" ||
+    s === "0" ||
+    s === "false" ||
+    s === "salah"
+  )
+    return false
+  return parseAktifCell(s)
+}
+
 /** Ya/Aktif/1/true vs Nonaktif/0/false — default aktif */
 export function parseAktifCell(raw: string): boolean {
   const s = normalizeHeaderKey(raw)

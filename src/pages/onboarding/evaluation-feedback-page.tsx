@@ -673,11 +673,11 @@ export default function EvaluationFeedbackPage() {
                   >
                     {/* Bagian header */}
                     <div
-                      className="flex cursor-pointer items-center justify-between gap-3 bg-[linear-gradient(135deg,#1e3a8a11,#2563eb08)] px-5 py-4 select-none"
+                      className="flex cursor-pointer items-center justify-between gap-3 bg-primary/10 px-5 py-4 select-none"
                       onClick={() => toggleBagian(b.id)}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#1e3a8a,#2563eb)] text-xs font-bold text-white">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#202887] text-xs font-bold text-slate-50">
                           {bIdx + 1}
                         </div>
                         <div>
@@ -889,7 +889,7 @@ export default function EvaluationFeedbackPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+                    <tr className="bg-[#202887] text-slate-50">
                       <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                         #
                       </th>

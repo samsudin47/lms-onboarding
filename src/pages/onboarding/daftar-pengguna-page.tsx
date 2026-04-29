@@ -1,308 +1,141 @@
-﻿import { useState } from "react"
-import { PencilLine, Plus, Trash2 } from "lucide-react"
+﻿import { useEffect, useRef, useState } from "react"
+import type { ChangeEvent } from "react"
+import { PencilLine, Plus, Trash2, Upload } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SearchableSelect } from "@/components/searchable-select"
+import {
+  cellByAliases,
+  normalizeHeaderKey,
+  parseBooleanLike,
+  sheetToDataRows,
+} from "@/lib/excel-import"
+import type { UserDirectorySeedRow, UserStatus } from "@/lib/user-directory-seed"
+import { USER_DIRECTORY_SEED } from "@/lib/user-directory-seed"
+import {
+  getClassUserColumnsForNomorPokok,
+  loadClassUserRows,
+} from "@/lib/class-users-storage"
 import { cn } from "@/lib/utils"
 
-// ─────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────
-type UserStatus = "AKTIF" | "TIDAK AKTIF"
+type UserRow = UserDirectorySeedRow
 
-type RoleKey =
-  | "Onboarding"
-  | "User"
-  | "Mentor"
-  | "Co-Mentor"
-  | "Admin PSP"
-  | "Superadmin"
-  | "Penguji"
+/** Tanpa kolom Role — akses ditentukan flag LMS / onboarding (keduanya boleh aktif). */
+type AccessFilter = "all" | "lms" | "onboarding" | "both"
 
-type UserRow = {
-  id: string
-  nomorPokok: string
-  nama: string
-  kodeSTO: string
-  namaUnit: string
-  jabatan: string
-  role: RoleKey
-  status: UserStatus
+function parseStatusCell(raw: string): UserStatus {
+  const s = normalizeHeaderKey(raw)
+  if (
+    s.includes("tidak") ||
+    s.includes("nonaktif") ||
+    s === "0" ||
+    s.includes("inactive")
+  )
+    return "TIDAK AKTIF"
+  return "AKTIF"
 }
 
-const ALL_ROLES: RoleKey[] = [
-  "Onboarding",
-  "User",
-  "Mentor",
-  "Co-Mentor",
-  "Admin PSP",
-  "Superadmin",
-  "Penguji",
-]
-
-// ─────────────────────────────────────────
-// Seed data (flat list)
-// ─────────────────────────────────────────
-const seedUsers: UserRow[] = [
-  // Onboarding
-  {
-    id: "ONB01",
-    nomorPokok: "ONB01",
-    nama: "Andi Pratama",
-    kodeSTO: "42D10",
-    namaUnit: "Unit IT",
-    jabatan: "Magang Trainee",
-    role: "Onboarding",
-    status: "AKTIF",
-  },
-  {
-    id: "ONB02",
-    nomorPokok: "ONB02",
-    nama: "Budi Santoso",
-    kodeSTO: "33X10",
-    namaUnit: "Unit SDM",
-    jabatan: "Magang Trainee",
-    role: "Onboarding",
-    status: "TIDAK AKTIF",
-  },
-  {
-    id: "ONB03",
-    nomorPokok: "ONB03",
-    nama: "Chandra Wijaya",
-    kodeSTO: "42D10",
-    namaUnit: "Unit IT",
-    jabatan: "Magang Trainee",
-    role: "Onboarding",
-    status: "AKTIF",
-  },
-  {
-    id: "ONB04",
-    nomorPokok: "ONB04",
-    nama: "Dedi Kurniawan",
-    kodeSTO: "33X10",
-    namaUnit: "Unit SDM",
-    jabatan: "Magang Trainee",
-    role: "Onboarding",
-    status: "AKTIF",
-  },
-  {
-    id: "ONB05",
-    nomorPokok: "ONB05",
-    nama: "Eko Prasetyo",
-    kodeSTO: "42D10",
-    namaUnit: "Unit IT",
-    jabatan: "Magang Trainee",
-    role: "Onboarding",
-    status: "AKTIF",
-  },
-  {
-    id: "ONB06",
-    nomorPokok: "ONB06",
-    nama: "Fajar Shodiq",
-    kodeSTO: "33X10",
-    namaUnit: "Unit SDM",
-    jabatan: "Magang Trainee",
-    role: "Onboarding",
-    status: "AKTIF",
-  },
-  {
-    id: "ONB07",
-    nomorPokok: "ONB07",
-    nama: "Gilang Ramadhan",
-    kodeSTO: "42D10",
-    namaUnit: "Unit IT",
-    jabatan: "Magang Trainee",
-    role: "Onboarding",
-    status: "AKTIF",
-  },
-  // User
-  {
-    id: "USR01",
-    nomorPokok: "USR01",
-    nama: "Hendra Putra",
-    kodeSTO: "10A01",
-    namaUnit: "Unit Keuangan",
-    jabatan: "Staff",
-    role: "User",
-    status: "AKTIF",
-  },
-  {
-    id: "USR02",
-    nomorPokok: "USR02",
-    nama: "Indah Lestari",
-    kodeSTO: "22B05",
-    namaUnit: "Unit HRD",
-    jabatan: "Staff",
-    role: "User",
-    status: "AKTIF",
-  },
-  {
-    id: "USR03",
-    nomorPokok: "USR03",
-    nama: "Joko Widodo",
-    kodeSTO: "33X10",
-    namaUnit: "Unit SDM",
-    jabatan: "Senior Staff",
-    role: "User",
-    status: "TIDAK AKTIF",
-  },
-  // Mentor
-  {
-    id: "MNT01",
-    nomorPokok: "MNT01",
-    nama: "Rina Oktavia",
-    kodeSTO: "42D10",
-    namaUnit: "Unit IT",
-    jabatan: "Mentor",
-    role: "Mentor",
-    status: "AKTIF",
-  },
-  {
-    id: "MNT02",
-    nomorPokok: "MNT02",
-    nama: "Bima Saputra",
-    kodeSTO: "22B05",
-    namaUnit: "Unit HRD",
-    jabatan: "Mentor",
-    role: "Mentor",
-    status: "AKTIF",
-  },
-  {
-    id: "MNT03",
-    nomorPokok: "MNT03",
-    nama: "Salsa Maharani",
-    kodeSTO: "33X10",
-    namaUnit: "Unit SDM",
-    jabatan: "Mentor",
-    role: "Mentor",
-    status: "AKTIF",
-  },
-  // Co-Mentor
-  {
-    id: "COM01",
-    nomorPokok: "COM01",
-    nama: "Tono Santoso",
-    kodeSTO: "42D10",
-    namaUnit: "Unit IT",
-    jabatan: "Co-Mentor",
-    role: "Co-Mentor",
-    status: "AKTIF",
-  },
-  {
-    id: "COM02",
-    nomorPokok: "COM02",
-    nama: "Wulan Sari",
-    kodeSTO: "22B05",
-    namaUnit: "Unit HRD",
-    jabatan: "Co-Mentor",
-    role: "Co-Mentor",
-    status: "AKTIF",
-  },
-  // Admin PSP
-  {
-    id: "ADM01",
-    nomorPokok: "ADM01",
-    nama: "Admin Peruri",
-    kodeSTO: "00P00",
-    namaUnit: "Unit PSP",
-    jabatan: "Admin PSP",
-    role: "Admin PSP",
-    status: "AKTIF",
-  },
-  // Superadmin
-  {
-    id: "SUP01",
-    nomorPokok: "SUP01",
-    nama: "Super Admin",
-    kodeSTO: "00P00",
-    namaUnit: "Unit PSP",
-    jabatan: "Superadmin",
-    role: "Superadmin",
-    status: "AKTIF",
-  },
-  // Penguji
-  {
-    id: "PNJ01",
-    nomorPokok: "PNJ01",
-    nama: "Dr. Ahmad Fauzi",
-    kodeSTO: "EXT01",
-    namaUnit: "Eksternal",
-    jabatan: "Penguji Eksternal",
-    role: "Penguji",
-    status: "AKTIF",
-  },
-  {
-    id: "PNJ02",
-    nomorPokok: "PNJ02",
-    nama: "Ir. Soekarno",
-    kodeSTO: "EXT02",
-    namaUnit: "Eksternal",
-    jabatan: "Penguji Eksternal",
-    role: "Penguji",
-    status: "AKTIF",
-  },
-  {
-    id: "PNJ03",
-    nomorPokok: "PNJ03",
-    nama: "Putri Rahayu",
-    kodeSTO: "42D10",
-    namaUnit: "Unit IT",
-    jabatan: "Penguji Internal",
-    role: "Penguji",
-    status: "AKTIF",
-  },
-  {
-    id: "PNJ04",
-    nomorPokok: "PNJ04",
-    nama: "Rizky Firmansyah",
-    kodeSTO: "33X10",
-    namaUnit: "Unit SDM",
-    jabatan: "Penguji Internal",
-    role: "Penguji",
-    status: "TIDAK AKTIF",
-  },
-]
-
-const roleBadgeColors: Record<RoleKey, string> = {
-  Onboarding: "bg-blue-100 text-blue-700",
-  User: "bg-slate-100 text-slate-700",
-  Mentor: "bg-violet-100 text-violet-700",
-  "Co-Mentor": "bg-fuchsia-100 text-fuchsia-700",
-  "Admin PSP": "bg-amber-100 text-amber-700",
-  Superadmin: "bg-rose-100 text-rose-700",
-  Penguji: "bg-teal-100 text-teal-700",
-}
-
-function generateId(users: UserRow[], role: RoleKey): string {
-  const prefixMap: Record<RoleKey, string> = {
-    Onboarding: "ONB",
-    User: "USR",
-    Mentor: "MNT",
-    "Co-Mentor": "COM",
-    "Admin PSP": "ADM",
-    Superadmin: "SUP",
-    Penguji: "PNJ",
+function parseUsersFromExcelBuffer(buf: ArrayBuffer): {
+  rows: UserRow[]
+  errors: string[]
+} {
+  let data: Record<string, unknown>[]
+  try {
+    data = sheetToDataRows(buf)
+  } catch {
+    return { rows: [], errors: ["File tidak dapat dibaca."] }
   }
-  const prefix = prefixMap[role]
-  const nums = users
-    .filter((r) => r.nomorPokok.startsWith(prefix))
-    .map((r) => parseInt(r.nomorPokok.replace(prefix, ""), 10))
-    .filter((n) => !isNaN(n))
-  const next = nums.length ? Math.max(...nums) + 1 : 1
-  return `${prefix}${String(next).padStart(2, "0")}`
+  const errors: string[] = []
+  const rows: UserRow[] = []
+  const seenNp = new Set<string>()
+
+  data.forEach((raw, idx) => {
+    const line = idx + 2
+    const nomorPokok = cellByAliases(raw, [
+      "nomor_pokok",
+      "nomorpokok",
+      "np",
+      "nip",
+      "nik",
+    ])
+    const nama = cellByAliases(raw, ["nama", "nama_lengkap", "namalengkap", "name"])
+    if (!nomorPokok.trim() && !nama.trim()) return
+    if (!nama.trim()) {
+      errors.push(`Baris ${line}: nama wajib diisi.`)
+      return
+    }
+
+    const np = nomorPokok.trim() || `IMP-${line}`
+    if (seenNp.has(np)) {
+      errors.push(`Baris ${line}: nomor pokok duplikat (${np}).`)
+      return
+    }
+    seenNp.add(np)
+
+    const kodeSTO = cellByAliases(raw, ["kode_sto", "kodesto", "sto"])
+    const namaUnit = cellByAliases(raw, ["nama_unit", "namaunit", "unit"])
+    const jabatan = cellByAliases(raw, ["jabatan", "posisi"])
+
+    const isLms = parseBooleanLike(
+      cellByAliases(raw, ["is_lms", "islms", "akses_lms", "lms"])
+    )
+    const isOnboarding = parseBooleanLike(
+      cellByAliases(raw, [
+        "is_onboarding",
+        "isonboarding",
+        "akses_onboarding",
+        "onboarding",
+      ])
+    )
+
+    const statusRaw = cellByAliases(raw, ["status", "aktif"])
+    const status: UserStatus = statusRaw.trim()
+      ? parseStatusCell(statusRaw)
+      : "AKTIF"
+
+    rows.push({
+      id: np,
+      nomorPokok: np,
+      nama,
+      kodeSTO,
+      namaUnit,
+      jabatan,
+      isLms,
+      isOnboarding,
+      status,
+    })
+  })
+
+  return { rows, errors }
 }
 
-// ─────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────
+function nextGeneratedId(existing: UserRow[]): string {
+  let n = 1
+  while (existing.some((u) => u.id === `USR-${String(n).padStart(4, "0")}`)) {
+    n++
+  }
+  return `USR-${String(n).padStart(4, "0")}`
+}
+
 export default function DaftarPenggunaPage() {
-  const [users, setUsers] = useState<UserRow[]>(seedUsers)
-  const [roleFilter, setRoleFilter] = useState<RoleKey | "All">("All")
+  const [users, setUsers] = useState<UserRow[]>(() => [...USER_DIRECTORY_SEED])
+  const [classUserRows, setClassUserRows] = useState(loadClassUserRows)
+
+  useEffect(() => {
+    function refresh() {
+      setClassUserRows(loadClassUserRows())
+    }
+    window.addEventListener("lms-class-users-updated", refresh)
+    return () =>
+      window.removeEventListener("lms-class-users-updated", refresh)
+  }, [])
+  const [accessFilter, setAccessFilter] = useState<AccessFilter>("all")
   const [showEntries, setShowEntries] = useState(20)
   const [search, setSearch] = useState("")
 
-  // Modal state
+  const excelInputRef = useRef<HTMLInputElement>(null)
+
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formNama, setFormNama] = useState("")
@@ -310,14 +143,19 @@ export default function DaftarPenggunaPage() {
   const [formKodeSTO, setFormKodeSTO] = useState("")
   const [formNamaUnit, setFormNamaUnit] = useState("")
   const [formJabatan, setFormJabatan] = useState("")
-  const [formRole, setFormRole] = useState<RoleKey>("Onboarding")
+  const [formIsLms, setFormIsLms] = useState(false)
+  const [formIsOnboarding, setFormIsOnboarding] = useState(true)
   const [formStatus, setFormStatus] = useState<UserStatus>("AKTIF")
 
-  // Delete confirm
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
   const filtered = users
-    .filter((r) => roleFilter === "All" || r.role === roleFilter)
+    .filter((r) => {
+      if (accessFilter === "all") return true
+      if (accessFilter === "lms") return r.isLms
+      if (accessFilter === "onboarding") return r.isOnboarding
+      return r.isLms && r.isOnboarding
+    })
     .filter(
       (r) =>
         r.nama.toLowerCase().includes(search.toLowerCase()) ||
@@ -333,7 +171,8 @@ export default function DaftarPenggunaPage() {
     setFormKodeSTO("")
     setFormNamaUnit("")
     setFormJabatan("")
-    setFormRole(roleFilter !== "All" ? roleFilter : "Onboarding")
+    setFormIsLms(false)
+    setFormIsOnboarding(true)
     setFormStatus("AKTIF")
     setShowModal(true)
   }
@@ -345,7 +184,8 @@ export default function DaftarPenggunaPage() {
     setFormKodeSTO(row.kodeSTO)
     setFormNamaUnit(row.namaUnit)
     setFormJabatan(row.jabatan)
-    setFormRole(row.role)
+    setFormIsLms(row.isLms)
+    setFormIsOnboarding(row.isOnboarding)
     setFormStatus(row.status)
     setShowModal(true)
   }
@@ -363,21 +203,24 @@ export default function DaftarPenggunaPage() {
                 kodeSTO: formKodeSTO,
                 namaUnit: formNamaUnit,
                 jabatan: formJabatan,
-                role: formRole,
+                isLms: formIsLms,
+                isOnboarding: formIsOnboarding,
                 status: formStatus,
               }
             : r
         )
       }
-      const newId = generateId(prev, formRole)
+      const newId = nextGeneratedId(prev)
+      const np = formNomorPokok.trim() || newId
       const newRow: UserRow = {
-        id: newId,
-        nomorPokok: formNomorPokok || newId,
+        id: np,
+        nomorPokok: np,
         nama: formNama,
         kodeSTO: formKodeSTO,
         namaUnit: formNamaUnit,
         jabatan: formJabatan,
-        role: formRole,
+        isLms: formIsLms,
+        isOnboarding: formIsOnboarding,
         status: formStatus,
       }
       return [...prev, newRow]
@@ -385,20 +228,61 @@ export default function DaftarPenggunaPage() {
     setShowModal(false)
   }
 
+  async function handleUserExcelChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    const buf = await file.arrayBuffer()
+    const { rows, errors } = parseUsersFromExcelBuffer(buf)
+    if (errors.length) {
+      window.alert(
+        errors.slice(0, 20).join("\n") +
+          (errors.length > 20 ? `\n… (${errors.length} pesan)` : "")
+      )
+    }
+    if (rows.length === 0) {
+      if (!errors.length) window.alert("Tidak ada baris pengguna yang valid.")
+      return
+    }
+    setUsers((prev) => {
+      const byNp = new Map(prev.map((u) => [u.nomorPokok, u]))
+      for (const r of rows) {
+        byNp.set(r.nomorPokok, r)
+      }
+      return Array.from(byNp.values())
+    })
+    window.alert(`Berhasil mengimpor / memperbarui ${rows.length} pengguna.`)
+  }
+
   function handleDelete(id: string) {
     setUsers((prev) => prev.filter((r) => r.id !== id))
     setDeleteTargetId(null)
   }
 
-  const roleCounts = (["All", ...ALL_ROLES] as const).map((r) => ({
-    role: r,
+  const filterCounts = (
+    [
+      ["all", "Semua"],
+      ["lms", "Akses LMS"],
+      ["onboarding", "Akses Onboarding"],
+      ["both", "LMS & Onboarding"],
+    ] as const
+  ).map(([value, label]) => ({
+    value,
+    label,
     count:
-      r === "All" ? users.length : users.filter((u) => u.role === r).length,
+      value === "all"
+        ? users.length
+        : users.filter((u) =>
+              value === "lms"
+                ? u.isLms
+                : value === "onboarding"
+                  ? u.isOnboarding
+                  : u.isLms && u.isOnboarding
+            ).length,
   }))
 
   return (
     <section className="space-y-5">
-      {/* Header */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -407,41 +291,57 @@ export default function DaftarPenggunaPage() {
             </p>
             <h2 className="mt-1 text-2xl font-semibold">Daftar Pengguna</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Kelola seluruh pengguna sistem. Gunakan filter role untuk
-              mempersempit tampilan.
+              Akses LMS dan onboarding diatur per pengguna (boleh keduanya).
+              Impor Excel dengan kolom <span className="font-mono">is_lms</span>{" "}
+              dan <span className="font-mono">is_onboarding</span> (Ya/Tidak atau
+              1/0).
             </p>
           </div>
-          <Button type="button" onClick={openAdd}>
-            <Plus className="size-4" />
-            Tambah Pengguna
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={excelInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="sr-only"
+              onChange={handleUserExcelChange}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => excelInputRef.current?.click()}
+            >
+              <Upload className="size-4" />
+              Impor Excel
+            </Button>
+            <Button type="button" onClick={openAdd}>
+              <Plus className="size-4" />
+              Tambah Pengguna
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Table card */}
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        {/* Role filter dropdown */}
-        <div className="flex items-center gap-3 border-b px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
           <label className="text-sm font-medium whitespace-nowrap text-muted-foreground">
-            Filter Role
+            Filter akses
           </label>
           <SearchableSelect
-            value={roleFilter}
+            value={accessFilter}
             onChange={(v) => {
-              setRoleFilter(v as RoleKey | "All")
+              setAccessFilter(v as AccessFilter)
               setSearch("")
             }}
-            options={roleCounts.map(({ role }) => ({
-              value: role,
-              label: role,
+            options={filterCounts.map(({ value, label, count }) => ({
+              value,
+              label: `${label} (${count})`,
             }))}
             dynamic
-            selectClassName="rounded-md border bg-background px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+            selectClassName="rounded-md border bg-background px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none min-w-[220px]"
           />
         </div>
 
         <div className="space-y-4 p-4">
-          {/* Controls */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               show
@@ -466,11 +366,10 @@ export default function DaftarPenggunaPage() {
             />
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[linear-gradient(135deg,#1e3a8a,#5b21b6)] text-white">
+                <tr className="bg-[#202887] text-slate-50">
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                     No
                   </th>
@@ -481,7 +380,10 @@ export default function DaftarPenggunaPage() {
                     Nama
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
-                    Role
+                    LMS
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                    Onboarding
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                     Kode STO
@@ -491,6 +393,12 @@ export default function DaftarPenggunaPage() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                     Jabatan
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                    Status kelas
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
+                    Enrolled at
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                     Status
@@ -504,14 +412,19 @@ export default function DaftarPenggunaPage() {
                 {displayed.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={12}
                       className="py-10 text-center text-muted-foreground"
                     >
                       Tidak ada data pengguna.
                     </td>
                   </tr>
                 ) : (
-                  displayed.map((row, index) => (
+                  displayed.map((row, index) => {
+                    const cu = getClassUserColumnsForNomorPokok(
+                      row.nomorPokok,
+                      classUserRows
+                    )
+                    return (
                     <tr
                       key={row.id}
                       className={cn(
@@ -529,11 +442,25 @@ export default function DaftarPenggunaPage() {
                       <td className="px-4 py-3">
                         <span
                           className={cn(
-                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-                            roleBadgeColors[row.role]
+                            "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                            row.isLms
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-100 text-slate-500"
                           )}
                         >
-                          {row.role}
+                          {row.isLms ? "Ya" : "Tidak"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                            row.isOnboarding
+                              ? "bg-sky-100 text-sky-800"
+                              : "bg-slate-100 text-slate-500"
+                          )}
+                        >
+                          {row.isOnboarding ? "Ya" : "Tidak"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
@@ -544,6 +471,12 @@ export default function DaftarPenggunaPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {row.jabatan}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {cu.statusKelas}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {cu.enrolledAt}
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -578,7 +511,8 @@ export default function DaftarPenggunaPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -590,7 +524,6 @@ export default function DaftarPenggunaPage() {
         </div>
       </div>
 
-      {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl">
@@ -605,7 +538,7 @@ export default function DaftarPenggunaPage() {
                 <Input
                   value={formNomorPokok}
                   onChange={(e) => setFormNomorPokok(e.target.value)}
-                  placeholder="Contoh: ONB01"
+                  placeholder="Unik per pengguna"
                 />
               </div>
               <div>
@@ -616,15 +549,28 @@ export default function DaftarPenggunaPage() {
                   placeholder="Nama lengkap pengguna"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Role</label>
-                <SearchableSelect
-                  value={formRole}
-                  onChange={(v) => setFormRole(v as RoleKey)}
-                  options={ALL_ROLES.map((r) => ({ value: r, label: r }))}
-                  className="w-full"
-                  selectClassName="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-                />
+              <div className="rounded-lg border bg-muted/25 px-3 py-2 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Akses aplikasi
+                </p>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-input accent-primary"
+                    checked={formIsLms}
+                    onChange={(e) => setFormIsLms(e.target.checked)}
+                  />
+                  <span>is_lms — akses LMS</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-input accent-primary"
+                    checked={formIsOnboarding}
+                    onChange={(e) => setFormIsOnboarding(e.target.checked)}
+                  />
+                  <span>is_onboarding — akses onboarding</span>
+                </label>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">
@@ -653,7 +599,7 @@ export default function DaftarPenggunaPage() {
                 <Input
                   value={formJabatan}
                   onChange={(e) => setFormJabatan(e.target.value)}
-                  placeholder="Contoh: Magang Trainee"
+                  placeholder="Contoh: Staff"
                 />
               </div>
               <div>
@@ -684,7 +630,6 @@ export default function DaftarPenggunaPage() {
         </div>
       )}
 
-      {/* Delete Confirm */}
       {deleteTargetId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-xl">

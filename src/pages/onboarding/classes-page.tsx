@@ -812,7 +812,7 @@ export default function ClassesPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+              <tr className="bg-[#202887] text-slate-50">
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                   #
                 </th>
@@ -963,8 +963,7 @@ export default function ClassesPage() {
                       <td className="px-4 py-3.5">
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-7 border-blue-600 bg-blue-600 text-xs text-white hover:bg-blue-700"
+                          className="h-7 text-xs"
                         >
                           <Download className="size-3" />
                           Unduh

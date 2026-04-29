@@ -325,7 +325,7 @@ export default function MasterKategoriPelatihanPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+              <tr className="bg-[#202887] text-slate-50">
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                   #
                 </th>

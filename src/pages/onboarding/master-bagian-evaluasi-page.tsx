@@ -23,7 +23,6 @@ type BagianRow = {
   kode: string
   nama: string
   deskripsi: string
-  bobotPersen: number
   urutan: number
   aktif: boolean
 }
@@ -36,7 +35,6 @@ const initialBagian: BagianRow[] = [
     nama: "Pengetahuan & Pemahaman",
     deskripsi:
       "Penilaian pemahaman peserta terhadap materi onboarding dan nilai perusahaan.",
-    bobotPersen: 25,
     urutan: 1,
     aktif: true,
   },
@@ -45,7 +43,6 @@ const initialBagian: BagianRow[] = [
     kode: "B02",
     nama: "Keterampilan Teknis",
     deskripsi: "Penilaian kompetensi teknis sesuai kebutuhan jabatan peserta.",
-    bobotPersen: 30,
     urutan: 2,
     aktif: true,
   },
@@ -55,7 +52,6 @@ const initialBagian: BagianRow[] = [
     nama: "Sikap & Perilaku",
     deskripsi:
       "Penilaian kedisiplinan, etika kerja, dan kesesuaian budaya organisasi.",
-    bobotPersen: 20,
     urutan: 3,
     aktif: true,
   },
@@ -65,7 +61,6 @@ const initialBagian: BagianRow[] = [
     nama: "Project & Implementasi",
     deskripsi:
       "Penilaian hasil project nyata yang dikerjakan selama masa onboarding.",
-    bobotPersen: 25,
     urutan: 4,
     aktif: true,
   },
@@ -81,17 +76,6 @@ function nextId(rows: BagianRow[]): string {
 
 function nextUrutan(rows: BagianRow[]): number {
   return rows.length ? Math.max(...rows.map((r) => r.urutan)) + 1 : 1
-}
-
-function totalBobot(rows: BagianRow[]): number {
-  return rows.reduce((sum, r) => sum + r.bobotPersen, 0)
-}
-
-function parseBobotPersen(raw: string): number {
-  const normalized = raw.trim().replace(",", ".").replace(/%/g, "").trim()
-  const n = Number.parseFloat(normalized)
-  if (Number.isNaN(n) || n < 0) return 0
-  return Math.min(100, Math.round(n * 100) / 100)
 }
 
 function importBagianFromSheetRows(
@@ -128,15 +112,6 @@ function importBagianFromSheetRows(
       "description",
       "keterangan",
     ]).trim()
-    const bobotRaw = cellByAliases(row, [
-      "bobot",
-      "bobotpersen",
-      "bobot%",
-      "bobot (%)",
-      "persen",
-      "weight",
-    ])
-    const bobotPersen = bobotRaw ? parseBobotPersen(bobotRaw) : 0
 
     const urutanRaw = cellByAliases(row, ["urutan", "order", "no"])
     const urutanParsed = Number.parseInt(urutanRaw, 10)
@@ -152,7 +127,6 @@ function importBagianFromSheetRows(
       kode,
       nama,
       deskripsi,
-      bobotPersen,
       urutan,
       aktif: parseAktifCell(aktifRaw),
     }
@@ -176,7 +150,6 @@ export default function MasterBagianEvaluasiPage() {
   const [fKode, setFKode] = useState("")
   const [fNama, setFNama] = useState("")
   const [fDeskripsi, setFDeskripsi] = useState("")
-  const [fBobot, setFBobot] = useState(0)
   const [fUrutan, setFUrutan] = useState(1)
   const [fAktif, setFAktif] = useState(true)
 
@@ -194,14 +167,12 @@ export default function MasterBagianEvaluasiPage() {
     .sort((a, b) => a.urutan - b.urutan)
 
   const displayed = filtered.slice(0, showEntries)
-  const totalBobot100 = totalBobot(bagian)
 
   function openAdd() {
     setEditingId(null)
     setFKode("")
     setFNama("")
     setFDeskripsi("")
-    setFBobot(0)
     setFUrutan(nextUrutan(bagian))
     setFAktif(true)
     setShowModal(true)
@@ -212,7 +183,6 @@ export default function MasterBagianEvaluasiPage() {
     setFKode(row.kode)
     setFNama(row.nama)
     setFDeskripsi(row.deskripsi)
-    setFBobot(row.bobotPersen)
     setFUrutan(row.urutan)
     setFAktif(row.aktif)
     setShowModal(true)
@@ -225,7 +195,6 @@ export default function MasterBagianEvaluasiPage() {
       kode: fKode.trim().toUpperCase(),
       nama: fNama.trim(),
       deskripsi: fDeskripsi.trim(),
-      bobotPersen: fBobot,
       urutan: fUrutan,
       aktif: fAktif,
     }
@@ -289,27 +258,6 @@ export default function MasterBagianEvaluasiPage() {
         </p>
       </div>
 
-      {/* Total bobot warning */}
-      <div
-        className={cn(
-          "flex items-center justify-between rounded-xl border px-5 py-3 text-sm",
-          totalBobot100 === 100
-            ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-            : "border-amber-300 bg-amber-50 text-amber-700"
-        )}
-      >
-        <span>
-          Total bobot semua bagian:{" "}
-          <span className="font-bold">{totalBobot100}%</span>
-        </span>
-        {totalBobot100 !== 100 && (
-          <span className="text-xs">Pastikan total bobot mencapai 100%</span>
-        )}
-        {totalBobot100 === 100 && (
-          <span className="text-xs font-medium">Total bobot sudah sesuai</span>
-        )}
-      </div>
-
       {/* Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -365,7 +313,7 @@ export default function MasterBagianEvaluasiPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[linear-gradient(90deg,#1d4ed8,#4338ca,#7c3aed)] text-white">
+              <tr className="bg-[#202887] text-slate-50">
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                   #
                 </th>
@@ -377,9 +325,6 @@ export default function MasterBagianEvaluasiPage() {
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase">
                   Deskripsi
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold tracking-wide uppercase">
-                  Bobot (%)
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold tracking-wide uppercase">
                   Urutan
@@ -396,7 +341,7 @@ export default function MasterBagianEvaluasiPage() {
               {displayed.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="py-10 text-center text-muted-foreground"
                   >
                     Tidak ada bagian evaluasi ditemukan.
@@ -422,18 +367,6 @@ export default function MasterBagianEvaluasiPage() {
                     <td className="px-4 py-3.5 font-medium">{row.nama}</td>
                     <td className="max-w-xs truncate px-4 py-3.5 text-muted-foreground">
                       {row.deskripsi}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <span
-                        className={cn(
-                          "inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-bold",
-                          row.bobotPersen >= 25
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-slate-100 text-slate-600"
-                        )}
-                      >
-                        {row.bobotPersen}%
-                      </span>
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <span className="inline-flex size-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
@@ -494,7 +427,7 @@ export default function MasterBagianEvaluasiPage() {
               {editingId ? "Edit Bagian Evaluasi" : "Tambah Bagian Evaluasi"}
             </h3>
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-sm font-medium">
                     Kode <span className="text-red-500">*</span>
@@ -504,18 +437,6 @@ export default function MasterBagianEvaluasiPage() {
                     onChange={(e) => setFKode(e.target.value)}
                     placeholder="B01"
                     className="font-mono uppercase"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Bobot (%)
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={fBobot}
-                    onChange={(e) => setFBobot(Number(e.target.value))}
                   />
                 </div>
                 <div>

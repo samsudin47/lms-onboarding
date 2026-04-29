@@ -32,6 +32,10 @@ export type SearchableSelectProps = {
   searchThreshold?: number
   variant?: "default" | "rounded"
   /**
+   * Ukuran lebih besar untuk modal / form penting (trigger, panel cari, baris opsi).
+   */
+  size?: "default" | "comfortable"
+  /**
    * Lebar minimum trigger + panel (mode cari). Cegah dropdown menyempit di flex.
    * Default `min(100%, 18rem)` (~288px).
    */
@@ -51,6 +55,7 @@ export function SearchableSelect({
   dynamic,
   searchThreshold = DROPDOWN_SEARCH_THRESHOLD,
   variant = "default",
+  size = "default",
   minWidthClassName = "min-w-[min(100%,18rem)]",
 }: SearchableSelectProps) {
   const searchable = dropdownNeedsSearch(options.length, {
@@ -59,14 +64,18 @@ export function SearchableSelect({
     searchThreshold,
   })
 
+  const comfort = size === "comfortable"
+
   const baseSelectClasses =
     variant === "rounded"
       ? cn(
           "flex min-h-11 w-full items-center rounded-2xl border border-input bg-background px-4 py-3 text-sm shadow-sm transition",
+          comfort && "min-h-[3.25rem] py-3.5 text-base",
           "focus:ring-2 focus:ring-ring focus:outline-none disabled:opacity-50"
         )
       : cn(
           "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground",
+          comfort && "min-h-12 py-2.5 text-base",
           "focus:ring-2 focus:ring-ring focus:outline-none disabled:opacity-50"
         )
 
@@ -74,10 +83,12 @@ export function SearchableSelect({
     variant === "rounded"
       ? cn(
           "flex min-h-11 w-full items-center justify-between rounded-2xl border border-input bg-background px-4 py-3 text-left text-sm shadow-sm transition",
+          comfort && "min-h-[3.25rem] py-3.5 text-base",
           "disabled:pointer-events-none disabled:opacity-50"
         )
       : cn(
           "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-left text-sm",
+          comfort && "min-h-12 py-2.5 text-base",
           "disabled:pointer-events-none disabled:opacity-50"
         )
 
@@ -127,6 +138,7 @@ export function SearchableSelect({
       disabled={disabled}
       triggerButtonClasses={triggerButtonClasses}
       variant={variant}
+      size={size}
       minWidthClassName={minWidthClassName}
     />
   )
@@ -144,11 +156,13 @@ function SearchableSelectCombo({
   disabled,
   triggerButtonClasses,
   variant,
+  size = "default",
   minWidthClassName,
 }: Omit<SearchableSelectProps, "dynamic" | "searchThreshold"> & {
   triggerButtonClasses: string
   minWidthClassName: string
 }) {
+  const comfort = size === "comfortable"
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -232,7 +246,8 @@ function SearchableSelectCombo({
         <span className="truncate pr-3">{showTriggerText}</span>
         <ChevronDown
           className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform",
+            comfort ? "size-5" : "size-4",
+            "shrink-0 text-muted-foreground transition-transform",
             open && "rotate-180"
           )}
         />
@@ -240,16 +255,21 @@ function SearchableSelectCombo({
 
       {open ? (
         <div className="absolute left-0 z-50 mt-2 w-full overflow-hidden rounded-xl border bg-background shadow-xl">
-          <div className="border-b p-2">
+          <div className={cn("border-b", comfort ? "p-3" : "p-2")}>
             <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search
+                className={cn(
+                  "pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted-foreground",
+                  comfort ? "left-3 size-5" : "left-2.5 size-4"
+                )}
+              />
               <Input
                 ref={searchInputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Cari…"
                 className={cn(
-                  "h-9 pl-8",
+                  comfort ? "h-11 pl-11 text-base" : "h-9 pl-8",
                   variant === "rounded" && "rounded-xl"
                 )}
                 onClick={(e) => e.stopPropagation()}
@@ -262,7 +282,12 @@ function SearchableSelectCombo({
               />
             </div>
           </div>
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div
+            className={cn(
+              "overflow-y-auto py-1",
+              comfort ? "max-h-80" : "max-h-64"
+            )}
+          >
             {filtered.placeholderVisible && placeholderOption ? (
               <button
                 type="button"
@@ -274,7 +299,8 @@ function SearchableSelectCombo({
                   setQuery("")
                 }}
                 className={cn(
-                  "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm hover:bg-muted/50",
+                  "flex w-full items-center justify-between gap-3 px-4 text-left hover:bg-muted/50",
+                  comfort ? "py-3.5 text-base" : "py-3 text-sm",
                   placeholderOption.disabled && "pointer-events-none opacity-50"
                 )}
               >
@@ -283,7 +309,8 @@ function SearchableSelectCombo({
                 </span>
                 <Check
                   className={cn(
-                    "size-4 shrink-0 text-primary transition-opacity",
+                    comfort ? "size-5" : "size-4",
+                    "shrink-0 text-primary transition-opacity",
                     value === placeholderOption.value ? "opacity-100" : "opacity-0"
                   )}
                 />
@@ -304,7 +331,8 @@ function SearchableSelectCombo({
                       setQuery("")
                     }}
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm hover:bg-muted/50",
+                      "flex w-full items-center justify-between gap-3 px-4 text-left hover:bg-muted/50",
+                      comfort ? "py-3.5 text-base" : "py-3 text-sm",
                       option.disabled && "pointer-events-none opacity-50"
                     )}
                   >
@@ -313,7 +341,8 @@ function SearchableSelectCombo({
                     </span>
                     <Check
                       className={cn(
-                        "size-4 shrink-0 text-primary transition-opacity",
+                        comfort ? "size-5" : "size-4",
+                        "shrink-0 text-primary transition-opacity",
                         checked ? "opacity-100" : "opacity-0"
                       )}
                     />
@@ -321,7 +350,12 @@ function SearchableSelectCombo({
                 )
               })
             ) : (
-              <div className="px-4 py-3 text-sm text-muted-foreground">
+              <div
+                className={cn(
+                  "px-4 py-3 text-muted-foreground",
+                  comfort ? "text-base" : "text-sm"
+                )}
+              >
                 Tidak ada hasil.
               </div>
             )}

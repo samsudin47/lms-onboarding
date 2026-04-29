@@ -676,9 +676,10 @@ export const appFeatures: AppFeature[] = [
     id: 14,
     path: "/daftar-pengguna",
     title: "Daftar Pengguna",
-    summary: "Kelola seluruh pengguna sistem berdasarkan peran masing-masing.",
+    summary:
+      "Kelola pengguna dengan akses LMS dan onboarding (boleh keduanya). Impor Excel.",
     description:
-      "Admin PSP dapat menambah, mengubah, dan menghapus data pengguna dari berbagai peran: Onboarding, User, Mentor, Co-Mentor, Admin PSP, Superadmin, dan Penguji.",
+      "Admin PSP dapat menambah, mengubah, menghapus, dan mengimpor pengguna. Akses ditentukan flag is_lms dan is_onboarding; tidak lagi memakai kolom tipe role.",
     benefit: "Memudahkan pengelolaan pengguna dalam satu halaman terintegrasi.",
     badge: "Pengguna",
     icon: Users,

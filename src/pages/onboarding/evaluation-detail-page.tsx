@@ -219,8 +219,8 @@ export default function EvaluationDetailPage() {
                                     }
                                     className={`flex size-10 items-center justify-center rounded-full border-2 text-sm font-semibold transition ${
                                       isSelected
-                                        ? "border-blue-600 bg-blue-600 text-white"
-                                        : "border-slate-300 bg-white text-slate-500 hover:border-blue-400"
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-slate-300 bg-white text-slate-500 hover:border-primary/40"
                                     }`}
                                   >
                                     {score}
