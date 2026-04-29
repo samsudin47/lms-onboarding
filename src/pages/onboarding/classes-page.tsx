@@ -745,13 +745,6 @@ export default function ClassesPage() {
             Manajemen Kelas
           </p>
           <h2 className="mt-1 text-2xl font-semibold">Courses</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Kelola daftar course onboarding dan LMS. Course hanya bisa dipublish
-            jika bank soal pre/post (pilihan ganda) sudah lengkap lewat ikon
-            clipboard — tidak di form Edit. Ikon Tambah materi dan Atur test ada
-            di kolom terkanan bersama Edit dan Hapus. Isi opsional ID materi
-            journey agar soal tampil di layar peserta (mock: localStorage).
-          </p>
         </div>
       </div>
 
